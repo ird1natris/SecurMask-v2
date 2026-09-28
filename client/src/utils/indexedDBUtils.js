@@ -1,3 +1,5 @@
+// Retain the deployed browser-storage namespace so restoring SecurMask branding
+// does not orphan existing account-specific files or profile preferences.
 let cacheUser = null;
 export function setCacheUser(userId) {
     if (cacheUser !== userId) sessionStorage.clear();

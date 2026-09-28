@@ -8,7 +8,7 @@ const config = loadConfig();
 const storage = configuredStorage();
 await storage.init();
 const app = createApp({ db, storage, config, sendMail: createMailer() });
-const server = app.listen(config.port, config.host, () => console.log('Classifile API listening on port ' + config.port));
+const server = app.listen(config.port, config.host, () => console.log('SecurMask API listening on port ' + config.port));
 for (const signal of ['SIGTERM','SIGINT']) {
     process.once(signal, () => {
         const deadline = setTimeout(() => process.exit(1), 10000).unref();

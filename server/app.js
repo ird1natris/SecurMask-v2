@@ -29,7 +29,7 @@ export function createApp({ db, storage, config, sendMail, processor = createPro
     app.get('/health', run(async (req,res) => {
         await db.query('SELECT 1');
         await storage.check();
-        res.json({ status: 'ok', service: 'classifile-api' });
+        res.json({ status: 'ok', service: 'securmask-api' });
     }));
     app.use(auth.router);
     app.use(['/upload','/detect_columns','/mask','/file','/generate-signature','/verify-signature'], auth.limiter(60));
@@ -40,8 +40,8 @@ export function createApp({ db, storage, config, sendMail, processor = createPro
             message: Joi.string().trim().max(2000).required(),
         }).validate(req.body,{ stripUnknown: true });
         if (error) return res.status(400).json({ error: 'Enter a name and a message of up to 2,000 characters.' });
-        await sendMail({ to: req.user.email, subject: 'Classifile feedback received',
-            text: 'Hello ' + value.name + ',\n\nWe received your feedback:\n\n' + value.message + '\n\nClassifile' });
+        await sendMail({ to: req.user.email, subject: 'SecurMask feedback received',
+            text: 'Hello ' + value.name + ',\n\nWe received your feedback:\n\n' + value.message + '\n\nSecurMask' });
         res.json({ message: 'Feedback received.' });
     }));
     app.use((req,res) => res.status(404).json({ Error: 'Endpoint not found.' }));

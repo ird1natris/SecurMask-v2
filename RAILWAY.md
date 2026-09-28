@@ -1,10 +1,10 @@
-# Deploy Classifile on Railway
+# Deploy SecurMask on Railway
 
 Deploy main from [itsFiz/Classifile](https://github.com/itsFiz/Classifile). Create one project with four services named exactly as below.
 
 ## 1. Prepare credentials
 
-- Create a Resend API key and verify your sending domain. Use a sender such as Classifile <noreply@your-domain.com>.
+- Create a Resend API key and verify your sending domain. Use a sender such as SecurMask <noreply@your-domain.com>.
 - Generate two independent random secrets by running `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` twice. Use one for SECRET_KEY, another for PROCESSOR_SECRET. Keep them stable.
 - Never put private credentials in VITE_ variables: these are public build inputs.
 
@@ -69,9 +69,11 @@ SECRET_KEY=<first random secret>
 PROCESSOR_SECRET=${{processor.PROCESSOR_SECRET}}
 APP_ORIGIN=https://<web-domain>
 EMAIL_PROVIDER=resend
-EMAIL_FROM=Classifile <noreply@your-verified-domain.com>
+EMAIL_FROM=SecurMask <noreply@your-verified-domain.com>
 RESEND_API_KEY=<your Resend key>
 ```
+
+For an existing deployment, change only the display name in EMAIL_FROM to SecurMask, keeping the same verified sender address. Keep the existing database URL, secrets, upload volume and domains. Redeploy web and api to update the visible branding.
 
 Set EMAIL_FROM literally in the variable editor. APP_ORIGIN is the exact HTTPS scheme and hostname used by the browser, without a path. Disable serverless sleeping.
 

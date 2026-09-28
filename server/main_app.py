@@ -37,7 +37,7 @@ def authorize():
 
 @main_app.get("/health")
 def health():
-    return jsonify({"status": "ok", "service": "classifile-processor"})
+    return jsonify({"status": "ok", "service": "securmask-processor"})
 
 # Initialize Faker
 fake = Faker()

@@ -1,4 +1,4 @@
-name: Verify Classifile
+name: Verify SecurMask
 on:
   push:
     branches: [main]
@@ -13,14 +13,14 @@ jobs:
         image: postgres:17
         env:
           POSTGRES_PASSWORD: test
-          POSTGRES_DB: classifile
+          POSTGRES_DB: securmask
         ports: ["5432:5432"]
         options: >-
           --health-cmd "pg_isready -U postgres"
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       PROCESSOR_SECRET: ci-processor-secret-at-least-32-characters
-      TEST_DATABASE_URL: postgresql://postgres:test@localhost:5432/classifile
+      TEST_DATABASE_URL: postgresql://postgres:test@localhost:5432/securmask
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -64,25 +64,25 @@ jobs:
         working-directory: client
       - name: Build production images
         run: |
-          docker build -t classifile-web client
-          docker build -t classifile-api -f server/Dockerfile.api server
-          docker build -t classifile-processor -f server/Dockerfile.processor server
+          docker build -t securmask-web client
+          docker build -t securmask-api -f server/Dockerfile.api server
+          docker build -t securmask-processor -f server/Dockerfile.processor server
       - name: Smoke test production containers and proxy
         run: |
-          docker run --rm -e API_UPSTREAM=http://localhost:8081 classifile-web caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
-          docker run -d --name processor --network host -e PROCESSOR_SECRET classifile-processor
+          docker run --rm -e API_UPSTREAM=http://localhost:8081 securmask-web caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+          docker run -d --name processor --network host -e PROCESSOR_SECRET securmask-processor
           docker run -d --name api --network host \
             -e DATABASE_URL="$TEST_DATABASE_URL" -e PROCESSOR_SECRET \
             -e FLASK_URL=http://localhost:5000 -e UPLOAD_DIR=/data/uploads \
             -e SECRET_KEY=ci-session-secret-at-least-32-characters \
-            -e APP_ORIGIN=https://classifile.test \
+            -e APP_ORIGIN=https://securmask.test \
             -e EMAIL_PROVIDER=resend -e RESEND_API_KEY=ci-placeholder \
             -e EMAIL_FROM=hello@example.test \
-            -v classifile-uploads:/data/uploads classifile-api
-          docker run -d --name web --network host -e API_UPSTREAM=http://localhost:8081 classifile-web
+            -v securmask-uploads:/data/uploads securmask-api
+          docker run -d --name web --network host -e API_UPSTREAM=http://localhost:8081 securmask-web
           for i in $(seq 1 60); do
             if curl -fsS http://localhost:3000/api/health && curl -fsS http://localhost:5000/health; then
-              curl -fsS http://localhost:3000/homepage | grep -q Classifile
+              curl -fsS http://localhost:3000/homepage | grep -q SecurMask
               test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/api/verifyToken)" = 401
               docker restart api
               for j in $(seq 1 30); do

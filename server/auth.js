@@ -56,8 +56,8 @@ export function createAuth({db,config,sendMail,limits=true}) {
         );
         if(!result.rows.length)throw fail(resend?'Please wait a minute or request a new login code.':'Please wait a minute before requesting another code.',429);
         try{
-            await sendMail({to:email,subject:'Your Classifile sign-in code',
-                text:'Your Classifile sign-in code is '+code+'. It expires in 5 minutes. Do not share it. If you did not request this, ignore this email.'});
+            await sendMail({to:email,subject:'Your SecurMask sign-in code',
+                text:'Your SecurMask sign-in code is '+code+'. It expires in 5 minutes. Do not share it. If you did not request this, ignore this email.'});
         }catch{
             await db.query('DELETE FROM login_codes WHERE email=$1 AND challenge_id=$2',[email,challengeId]);
             throw fail('Unable to send your sign-in code. Please try again.',503);
@@ -93,7 +93,7 @@ export function createAuth({db,config,sendMail,limits=true}) {
         res.cookie('token',session,{...cookie,maxAge:3600000}).json({Status:'Login successful.'});
     }));
     router.get('/verifyToken',authenticate,(req,res)=>res.json({Status:'Success',decoded:{user_id:req.user.user_id,email:req.user.email}}));
-    router.get('/homepage',authenticate,(req,res)=>res.json({message:'Welcome to Classifile',user:req.user}));
+    router.get('/homepage',authenticate,(req,res)=>res.json({message:'Welcome to SecurMask',user:req.user}));
     router.post('/logout',(req,res)=>{
         for(const name of ['token','login_challenge'])res.clearCookie(name,cookie);
         res.json({Status:'Logged out successfully.'});

@@ -37,8 +37,8 @@ export default function Login({ onLoginSuccess }) {
   return <section className="bg-login flex items-center justify-center h-screen w-full overflow-auto px-6"
     style={{backgroundImage:'url('+Vector+')',backgroundSize:'cover',backgroundPosition:'center'}}>
     <form onSubmit={submit} className="w-full max-w-sm flex flex-col gap-5 sm:mx-12">
-      <img src={logo} className="w-[175px] h-auto" alt="Classifile" />
-      <h1 className="text-3xl text-white font-semibold">{sentTo?'Check your email':'Welcome to Classifile'}</h1>
+      <img src={logo} className="w-[175px] h-auto" alt="SecurMask" />
+      <h1 className="text-3xl text-white font-semibold">{sentTo?'Check your email':'Welcome to SecurMask'}</h1>
       <p className="text-slate-300">{sentTo?'Enter the six-digit code sent to '+sentTo+'. It expires in five minutes.':'Sign in or create an account with a code sent to your email.'}</p>
       {sentTo?<div>
         <label htmlFor="code" className="block text-white mb-2">Sign-in code</label>

@@ -14,7 +14,7 @@ Our subsequent contributions focus on **refactoring, maintenance and deployment 
 
 During the refactoring and deployment work, the project was temporarily named **Classifile**. We have returned to **SecurMask** as the project identity to maintain continuity with the original student work. Historical Classifile commits remain as an accurate record of that development stage.
 
-The repository is currently hosted at [itsFiz/Classifile](https://github.com/itsFiz/Classifile). Some application labels, configuration examples and planning documents still use Classifile and await a separate branding update. This README update does not rename the GitHub repository or deployed application.
+The repository is currently hosted at [itsFiz/Classifile](https://github.com/itsFiz/Classifile). Application branding, the original logo, email copy and planning documents now use SecurMask. The GitHub repository URL remains unchanged. Existing browser-storage namespaces are retained internally so saved files and preferences remain accessible.
 
 ### Attribution and license
 
@@ -53,7 +53,7 @@ Follow [RAILWAY.md](RAILWAY.md) for all four services, environment variables, vo
 Use Node 22 or 24, Python 3.12, and PostgreSQL 17.
 
 1. Run `npm ci` in both `client/` and `server/`.
-2. Create a PostgreSQL database called `classifile` to match the current environment example; this technical identifier is retained from the temporary naming stage.
+2. For a new local setup, create a PostgreSQL database called `securmask` to match the environment example. Existing databases do not need renaming; retain their DATABASE_URL.
 3. Copy `server/.env.example` to `server/.env` and `client/.env.example` to `client/.env`. Configure email, database and two independent secrets.
 4. Create and activate a Python virtual environment in `server/.venv`; run `pip install -r requirements.txt` from `server/`.
 5. From `server/` run `npm start`. This starts Flask on 5000 and Node on 8081; migrations run automatically.

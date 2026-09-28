@@ -12,7 +12,7 @@ import { createFileRouter } from '../file-routes.js';
 import { migrate } from '../migrate.js';
 
 async function fixture(t) {
-    const root = await mkdtemp(join(tmpdir(), 'classifile-test-'));
+    const root = await mkdtemp(join(tmpdir(), 'securmask-test-'));
     const engine = new PGlite();
     t.after(async () => { await engine.close(); await rm(root, { recursive: true, force: true }); });
     const query = async (sql, values) => {

@@ -240,7 +240,7 @@ const SettingsPage = ({ onLogout }) => {
                             {activeTab === "security" && (
                                 <div>
                                     <h2 className="text-xl font-bold mb-4">Email sign-in</h2>
-                                    <p>Classifile sends a one-time code to your email when you sign in. Codes expire after five minutes.</p>
+                                    <p>SecurMask sends a one-time code to your email when you sign in. Codes expire after five minutes.</p>
                                     <p className="mt-4">Your file encryption key is separate. Keep it safe; an email code cannot recover a lost file key.</p>
                                 </div>
                             )}

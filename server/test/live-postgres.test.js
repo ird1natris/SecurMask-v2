@@ -14,7 +14,7 @@ test('live PostgreSQL migrations, binary values and volume repository', {skip: !
     const admin=new pg.Pool({connectionString:process.env.TEST_DATABASE_URL});
     await admin.query('CREATE SCHEMA '+schema);
     const db=new pg.Pool({connectionString:process.env.TEST_DATABASE_URL,options:'-c search_path='+schema+' -c timezone=UTC'});
-    const root=await mkdtemp(join(tmpdir(),'classifile-pg-'));
+    const root=await mkdtemp(join(tmpdir(),'securmask-pg-'));
     t.after(async()=>{await db.end();await admin.query('DROP SCHEMA '+schema+' CASCADE');await admin.end();await rm(root,{recursive:true,force:true});});
     const client=await db.connect();
     try {await migrate(client);await migrate(client);} finally {client.release();}

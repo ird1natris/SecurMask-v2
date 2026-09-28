@@ -12,7 +12,7 @@ import { createMailer } from '../mail.js';
 
 test('passwordless signup, login, code lifecycle and authenticated file access', async t => {
     const engine = new PGlite();
-    const root = await mkdtemp(join(tmpdir(),'classifile-auth-'));
+    const root = await mkdtemp(join(tmpdir(),'securmask-auth-'));
     const query = async (sql,params) => {
         const result = params ? await engine.query(sql,params) : (await engine.exec(sql)).at(-1);
         return {...result,rowCount:result?.affectedRows ?? result?.rows?.length ?? 0};
@@ -22,7 +22,7 @@ test('passwordless signup, login, code lifecycle and authenticated file access',
     const storage = createStorage(root);
     await storage.init();
     const messages=[];
-    const config={production:true,secret:'test-secret-that-is-at-least-32-characters',origin:'https://classifile.test'};
+    const config={production:true,secret:'test-secret-that-is-at-least-32-characters',origin:'https://securmask.test'};
     const processor=process.env.FLASK_TEST_URL ? createProcessor(process.env.FLASK_TEST_URL) : {
         process:async bytes=>bytes.toString(), detect:async()=>({columns:['name','code']}),
         mask:async()=> 'name,code\nXXXXXX,00123\n',
@@ -118,7 +118,7 @@ test('passwordless signup, login, code lifecycle and authenticated file access',
 
 test('Resend adapter uses HTTPS and never returns provider secrets on failure',async()=>{
     let call;
-    const env={NODE_ENV:'production',EMAIL_PROVIDER:'resend',EMAIL_FROM:'Classifile <hello@example.test>',RESEND_API_KEY:'test-key'};
+    const env={NODE_ENV:'production',EMAIL_PROVIDER:'resend',EMAIL_FROM:'SecurMask <hello@example.test>',RESEND_API_KEY:'test-key'};
     const mail=createMailer(env,async(url,init)=>{call={url,init};return {ok:true};});
     await mail({to:'alice@example.test',subject:'Test',text:'code'});
     assert.equal(call.url,'https://api.resend.com/emails');

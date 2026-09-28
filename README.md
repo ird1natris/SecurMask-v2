@@ -8,13 +8,13 @@ SecurMask is a student-developed CSV/XLSX privacy workbench. Upload a dataset, c
 
 SecurMask was originally developed by **Irdina Batrisyia**. The original student project is available at [SecurMask-v1](https://github.com/ird1natris/SecurMask-v1). This repository continues that work and preserves its original Git history and author attribution.
 
-Our subsequent contributions focus on **refactoring, maintenance and deployment support** for the existing student project. They include the database migration, authentication updates, persistent file storage, deployment infrastructure and verification described below. These contributions do not replace or reattribute the student's original work.
+Subsequent contributions focus on **refactoring, maintenance and deployment support** for the existing student project. They include the database migration, authentication updates, persistent file storage, deployment infrastructure and verification described below. These contributions do not replace or reattribute the student's original work.
 
 ### Temporary Classifile name
 
 During the refactoring and deployment work, the project was temporarily named **Classifile**. We have returned to **SecurMask** as the project identity to maintain continuity with the original student work. Historical Classifile commits remain as an accurate record of that development stage.
 
-The repository is currently hosted at [itsFiz/SecurMask](https://github.com/itsFiz/SecurMask). Application branding, the original logo, email copy and planning documents now use SecurMask. The GitHub repository has also been renamed to SecurMask. Existing browser-storage namespaces are retained internally so saved files and preferences remain accessible.
+Application branding, the original logo and email copy use SecurMask. Existing browser-storage namespaces are retained internally so saved files and preferences remain accessible.
 
 ### Attribution and license
 

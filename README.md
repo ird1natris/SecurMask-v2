@@ -10,7 +10,7 @@
 - Upload .csv and .xlsx files for secure processing.
 - Mask sensitive data such as birthdates, addresses, emails, credit card details, and more.
 - Customizable masking options: select specific columns or apply masking to all columns.
-- Fast and secure processing with Python’s Pandas and Node.js libraries.
+- Fast and secure processing with PythonÃ¢â‚¬â„¢s Pandas and Node.js libraries.
 - Responsive and user-friendly UI.
 - Download the masked file securely.
 
@@ -76,3 +76,9 @@ Ensure the following tools are installed:
 
 - Expand support for other file formats (e.g., .json, .xml).
 - Incorporate machine learning for intelligent data masking patterns.
+
+## PostgreSQL database
+
+The API now uses PostgreSQL. See [database setup and Railway instructions](server/POSTGRES.md) for connection variables, schema migration, and tests. From server/, npm run start:api automatically applies pending schema and legacy-file migrations before starting the API.
+
+Uploaded file contents use a persistent API volume. See [storage setup](server/STORAGE.md) for Railway mounting and migrating legacy database files.

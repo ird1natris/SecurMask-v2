@@ -73,6 +73,7 @@ const FileList = ({ uploadedFiles, setUploadedFiles, onTab, onDelete, newTab }) 
         try {
           // Delete file from the server
           const response = await fetch("http://localhost:8081/deleteFile", {
+            credentials: 'include',
             method: "DELETE",
             headers: {
               "Content-Type": "application/json",
@@ -411,6 +412,7 @@ const FileList = ({ uploadedFiles, setUploadedFiles, onTab, onDelete, newTab }) 
     try {
       // Send a request to the backend to delete the file from the database
       const response = await fetch("http://localhost:8081/deleteFile", {
+        credentials: 'include',
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",

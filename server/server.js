@@ -1,6 +1,9 @@
 // Import Dependencies
 import express from 'express';
-import mysql from 'mysql2';
+import db from './db.js';
+import { configuredStorage } from './storage.js';
+import { createFileRepository } from './file-repository.js';
+import { createFileRouter } from './file-routes.js';
 import cors from 'cors';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
@@ -9,10 +12,6 @@ import dotenv from 'dotenv';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
-import multer from "multer";
-import stream from "stream";
-import csvParser from "csv-parser";
-import FormData from 'form-data';
 import axios from 'axios';
 import Joi from 'joi';
 import { v4 as uuidv4 } from 'uuid';
@@ -26,7 +25,7 @@ const secretKey = process.env.JWT_SECRET;
 const RECAPTCHA_SECRET_KEY = process.env.RECAPTCHA_SECRET_KEY;
 
 // Middleware Configuration
-app.use(express.json());
+app.use(express.json({ limit: "12mb" }));
 app.use(
     cors({
         origin: 'http://localhost:5173', // Adjust based on your frontend's URL
@@ -35,42 +34,7 @@ app.use(
 );
 app.use(cookieParser());
 
-// Determine which environment to use
-const environment = process.env.ENVIRONMENT;
-
-// Configure database connection based on the environment
-let dbConfig;
-
-if (environment === 'irdina') {
-    dbConfig = {
-        host: process.env.IRDINA_DB_HOST,
-        user: process.env.IRDINA_DB_USER,
-        password: process.env.IRDINA_DB_PASS,
-        database: process.env.IRDINA_DB_NAME,
-    };
-} else if (environment === 'aiven') {
-    dbConfig = {
-        host: process.env.AIVEN_DB_HOST,
-        port: process.env.AIVEN_DB_PORT,
-        user: process.env.AIVEN_DB_USER,
-        password: process.env.AIVEN_DB_PASS,
-        database: process.env.AIVEN_DB_NAME,
-    };
-} else {
-    throw new Error("Invalid environment specified in .env file");
-}
-
-// Create the MySQL connection
-const db = mysql.createConnection(dbConfig);
-
-// Connect to the database
-db.connect((err) => {
-    if (err) {
-        console.error('Error connecting to the database:', err.message);
-    } else {
-        console.log(`Connected to the ${environment} database.`);
-    }
-});
+// PostgreSQL connection pooling is configured in db.js.
 
 const saltRounds = 10; // Increased salt rounds for better security
 
@@ -151,12 +115,12 @@ app.post('/register', (req, res) => {
     const { fullName, email, password } = value;
 
     // Check if email already exists
-    const emailCheckQuery = 'SELECT * FROM users WHERE email = ?';
+    const emailCheckQuery = 'SELECT * FROM users WHERE lower(email) = lower($1)';
     db.query(emailCheckQuery, [email], (err, result) => {
         if (err) {
             return res.status(500).json('Database Error');
         }
-        if (result.length > 0) {
+        if (result.rows.length > 0) {
             return res.status(400).json('Email already in use');
         }
 
@@ -173,8 +137,11 @@ app.post('/register', (req, res) => {
             const values = [userId, fullName, email, hash];
 
             // Insert new user into the database
-            const sql = 'INSERT INTO users (user_id, fullName, email, password) VALUES (?)';
-            db.query(sql, [values], (err, result) => {
+            const sql = 'INSERT INTO users (user_id, "fullName", email, password) VALUES ($1, $2, $3, $4)';
+            db.query(sql, values, (err, result) => {
+                if (err?.code === '23505') {
+                    return res.status(400).json('Email already in use');
+                }
                 if (err) {
                     console.log(err);
                     return res.status(500).json('Database Error');
@@ -196,19 +163,19 @@ app.post('/login', (req, res) => {
 
     console.log("Login attempt:", email);
 
-    const sql = 'SELECT * FROM users WHERE email = ?';
+    const sql = 'SELECT * FROM users WHERE lower(email) = lower($1)';
     db.query(sql, [email], (err, result) => {
         if (err) {
             console.error("Database Error:", err);
             return res.status(500).json({ Error: 'Database Error' });
         }
 
-        if (result.length === 0) {
+        if (result.rows.length === 0) {
             console.log("Email not found:", email);
             return res.status(400).json({ Error: 'Email does not exist' });
         }
 
-        const user = result[0];
+        const user = result.rows[0];
         console.log("User found:", user.user_id);
 
         bcrypt.compare(password, user.password, (err, isMatch) => {
@@ -225,7 +192,7 @@ app.post('/login', (req, res) => {
             console.log("Password matched for email:", email);
 
             // Delete existing OTPs for the user
-            const deleteOtpQuery = 'DELETE FROM mfa_otps WHERE user_id = ?';
+            const deleteOtpQuery = 'DELETE FROM mfa_otps WHERE user_id = $1';
             db.query(deleteOtpQuery, [user.user_id], (err) => {
                 if (err) {
                     console.error("Error deleting existing OTPs:", err);
@@ -254,7 +221,7 @@ app.post('/login', (req, res) => {
 
                 const createdAt = new Date();
 
-                const insertOtpQuery = 'INSERT INTO mfa_otps (user_id,email, otp, created_at, expires_at) VALUES (?, ?, ?, ?,?)';
+                const insertOtpQuery = 'INSERT INTO mfa_otps (user_id,email, otp, created_at, expires_at) VALUES ($1, $2, $3, $4,$5)';
                 db.query(insertOtpQuery, [otpRecord.user_id, otpRecord.email, otpRecord.otp_hash, createdAt, expiresAt], (err) => {
                     if (err) {
                         console.error("Error inserting OTP:", err);
@@ -299,7 +266,7 @@ app.post('/verify-otp-login', (req, res) => {
     const { email, otp } = req.body;
 
     // Query to fetch the latest OTP record for the given email
-    const fetchOTPQuery = 'SELECT * FROM mfa_otps WHERE email = ? ORDER BY created_at DESC LIMIT 1';
+    const fetchOTPQuery = 'SELECT * FROM mfa_otps WHERE lower(email) = lower($1) ORDER BY created_at DESC LIMIT 1';
 
     db.query(fetchOTPQuery, [email], (err, results) => {
         if (err) {
@@ -307,11 +274,11 @@ app.post('/verify-otp-login', (req, res) => {
             return res.status(500).json({ Error: 'Database error.' });
         }
 
-        if (results.length === 0) {
+        if (results.rows.length === 0) {
             return res.status(400).json({ Error: 'No OTP request found for this email.' });
         }
 
-        const otpRecord = results[0];
+        const otpRecord = results.rows[0];
         const currentTime = new Date();
 
         // Ensure expires_at is a Date object and compare
@@ -381,7 +348,7 @@ app.post('/resend-otp', async (req, res) => {
     };
 
     // Step 5: Update the OTP for the provided email
-    const updateOtpQuery = 'UPDATE mfa_otps SET otp = ?, expires_at = ?, created_at = ? WHERE email = ?';
+    const updateOtpQuery = 'UPDATE mfa_otps SET otp = $1, expires_at = $2, created_at = $3 WHERE lower(email) = lower($4)';
     db.query(updateOtpQuery, [updatedOtpRecord.otp_hash, updatedOtpRecord.expires_at, updatedOtpRecord.created_at, email], (err) => {
         if (err) {
             console.error("Error updating OTP:", err);
@@ -423,14 +390,14 @@ app.post('/forgot-password', authLimiter, (req, res) => {
     }
 
     // Check if the Email Exists in Users Table
-    const userCheckQuery = 'SELECT * FROM users WHERE email = ?';
+    const userCheckQuery = 'SELECT * FROM users WHERE lower(email) = lower($1)';
     db.query(userCheckQuery, [email], (err, results) => {
         if (err) {
             console.error('Database Error:', err);
             return res.status(500).json({ Error: 'Database error.' });
         }
 
-        if (results.length === 0) {
+        if (results.rows.length === 0) {
             return res.status(404).json({ Error: 'Email not found.' });
         }
 
@@ -442,7 +409,7 @@ app.post('/forgot-password', authLimiter, (req, res) => {
         const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
         // Delete Existing OTPs for the Email to Ensure Only One Active OTP
-        const deleteExistingOTPs = 'DELETE FROM password_resets WHERE email = ?';
+        const deleteExistingOTPs = 'DELETE FROM password_resets WHERE lower(email) = lower($1)';
         db.query(deleteExistingOTPs, [email], (err, deleteResult) => {
             if (err) {
                 console.error('Error Deleting Existing OTPs:', err);
@@ -450,7 +417,7 @@ app.post('/forgot-password', authLimiter, (req, res) => {
             }
 
             // Insert New OTP into password_resets Table
-            const insertOTPQuery = 'INSERT INTO password_resets (email, otp, expires_at) VALUES (?, ?, ?)';
+            const insertOTPQuery = 'INSERT INTO password_resets (email, otp, expires_at) VALUES ($1, $2, $3)';
             db.query(insertOTPQuery, [email, otpHash, expiresAt], (err, insertResult) => {
                 if (err) {
                     console.error('Error Inserting OTP:', err);
@@ -489,18 +456,18 @@ app.post('/verify-otp', authLimiter, (req, res) => {
     }
 
     // Retrieve the Latest OTP for the Email
-    const fetchOTPQuery = 'SELECT * FROM password_resets WHERE email = ? ORDER BY created_at DESC LIMIT 1';
+    const fetchOTPQuery = 'SELECT * FROM password_resets WHERE lower(email) = lower($1) ORDER BY created_at DESC LIMIT 1';
     db.query(fetchOTPQuery, [email], (err, results) => {
         if (err) {
             console.error('Database Error:', err);
             return res.status(500).json({ Error: 'Database error.' });
         }
 
-        if (results.length === 0) {
+        if (results.rows.length === 0) {
             return res.status(400).json({ Error: 'No OTP request found for this email.' });
         }
 
-        const resetRequest = results[0];
+        const resetRequest = results.rows[0];
         const currentTime = new Date();
 
         // Check if OTP is Expired
@@ -527,18 +494,18 @@ app.post('/reset-password',async (req, res) => {
     }
 
     // Retrieve the Latest OTP for the Email
-    const fetchOTPQuery = 'SELECT * FROM password_resets WHERE email = ? ORDER BY created_at DESC LIMIT 1';
+    const fetchOTPQuery = 'SELECT * FROM password_resets WHERE lower(email) = lower($1) ORDER BY created_at DESC LIMIT 1';
     db.query(fetchOTPQuery, [email], (err, results) => {
         if (err) {
             console.error('Database Error:', err);
             return res.status(500).json({ Error: 'Database error.' });
         }
 
-        if (results.length === 0) {
+        if (results.rows.length === 0) {
             return res.status(400).json({ Error: 'No OTP request found for this email.' });
         }
 
-        const resetRequest = results[0];
+        const resetRequest = results.rows[0];
         //const currentTime = new Date();
 
         // Check if OTP is Expired
@@ -553,18 +520,18 @@ app.post('/reset-password',async (req, res) => {
         }
 
         // Retrieve the User's Current Password
-        const fetchPasswordQuery = 'SELECT password FROM users WHERE email = ?';
+        const fetchPasswordQuery = 'SELECT password FROM users WHERE lower(email) = lower($1)';
         db.query(fetchPasswordQuery, [email], (err, userResults) => {
             if (err) {
                 console.error('Database Error:', err);
                 return res.status(500).json({ Error: 'Database error.' });
             }
 
-            if (userResults.length === 0) {
+            if (userResults.rows.length === 0) {
                 return res.status(400).json({ Error: 'User not found.' });
             }
 
-            const currentPasswordHash = userResults[0].password;
+            const currentPasswordHash = userResults.rows[0].password;
 
             // Compare the New Password with the Old Password
             bcrypt.compare(newPassword, currentPasswordHash, (err, isSame) => {
@@ -587,7 +554,7 @@ app.post('/reset-password',async (req, res) => {
                     }
 
                     // Update the User's Password in the Database
-                    const updatePasswordQuery = 'UPDATE users SET password = ? WHERE email = ?';
+                    const updatePasswordQuery = 'UPDATE users SET password = $1 WHERE lower(email) = lower($2)';
                     db.query(updatePasswordQuery, [hash, email], (err, updateResult) => {
                         if (err) {
                             console.error('Error Updating Password:', err);
@@ -595,7 +562,7 @@ app.post('/reset-password',async (req, res) => {
                         }
 
                         // Check if the update affected any rows
-                        if (updateResult.affectedRows > 0) {
+                        if (updateResult.rowCount > 0) {
                             return res.status(200).json({ success: true, message: 'Password updated successfully.' });
                         } else {
                             return res.status(400).json({ Error: 'No user found with the provided email.' });
@@ -639,411 +606,12 @@ app.get('/homepage', verifyToken, (req, res) => {
     });
 });
 
-const storage = multer.memoryStorage();
-const upload = multer({ storage });
+const fileStorage = configuredStorage();
+await fileStorage.init();
+const fileRepository = createFileRepository(db, fileStorage);
+await fileRepository.cleanup();
+app.use(createFileRouter({ repository: fileRepository, authenticate: verifyToken }));
 
-// Helper Functions for Encryption/Decryption
-const hashKey = (key) => {
-    return crypto.createHash("sha256").update(key).digest(); // Hash the key with SHA-256
-};
-
-// Encrypt function: Encrypts data using AES-256-CBC
-const encrypt = (data, key, iv) => {
-    const cipher = crypto.createCipheriv("aes-256-cbc", key, iv);
-    let encrypted = cipher.update(data);
-    encrypted = Buffer.concat([encrypted, cipher.final()]);
-    return encrypted;
-};
-
-// Decrypt function: Decrypts data using AES-256-CBC
-const decrypt = (data, key, iv) => {
-    const decipher = crypto.createDecipheriv("aes-256-cbc", key, iv);
-    let decrypted = decipher.update(data);
-    decrypted = Buffer.concat([decrypted, decipher.final()]);
-    return decrypted.toString("utf8");
-};
-
-// File Upload Route
-// File Upload Route with User ID
-
-
-
-// Handle the file upload and processing
-app.post("/upload", upload.single("file"), async (req, res) => {
-    const token = req.cookies.token; // Assuming token is stored in cookies
-    console.log("token", token);
-    if (!token) {
-        return res.status(403).json({ message: "User not authenticated" });
-    }
-
-    jwt.verify(token, process.env.SECRET_KEY, async (err, decoded) => {
-        if (err) {
-            console.error("JWT verification error:", err);
-            return res.status(403).json({ message: "Invalid or expired token" });
-        }
-        console.log("Decoded Token:", decoded);
-        const userId = decoded.user_id; // Extract userId from the decoded token
-        console.log("User ID:", userId);
-        if (!userId) {
-            return res.status(400).json({ message: "User ID missing from token" });
-        }
-
-        const userKey = req.body.key;
-        const file = req.file;
-
-        if (!file) {
-            return res.status(400).json({ message: "No file uploaded" });
-        }
-
-        if (!userKey || userKey.length < 8) {
-            return res.status(400).json({ message: "Encryption key must be at least 8 characters long" });
-        }
-
-        try {
-            // Check the upload limit for the user
-            const countQuery = `
-                SELECT COUNT(*) AS uploadCount 
-                FROM user_files 
-                WHERE user_id = ? AND DATE(created_at) = CURDATE()`;
-            const [result] = await db.promise().query(countQuery, [userId]);
-            const uploadCount = result[0].uploadCount;
-
-            if (uploadCount >= 5) {
-                return res.status(400).json({ message: "You can only upload up to 5 files per day" });
-            }
-
-            // Process the file using Python Flask app
-            const formData = new FormData();
-            formData.append("file", file.buffer, { filename: file.originalname });
-
-            const response = await axios.post("http://127.0.0.1:5000/process_file", formData, {
-                headers: formData.getHeaders(),
-            });
-
-            const processedData = response.data; // Processed data from Python app
-            const processedDataBuffer = Buffer.from(processedData.replace(/\r\n/g, "\n"), "utf-8");
-            //console.log("processedData:",processedData);
-            // Encrypt the processed data
-            const hashedKey = hashKey(userKey);
-            const iv = crypto.randomBytes(16);
-            const encryptedData = encrypt(processedDataBuffer, hashedKey, iv);
-
-            // Save the encrypted file to the database
-            const fileId = uuidv4();
-            const insertQuery = `
-                INSERT INTO user_files (file_id, user_id, file_name, file_data, iv, created_at) 
-                VALUES (?, ?, ?, ?, ?, NOW())`;
-
-            await db.promise().query(insertQuery, [fileId, userId, file.originalname, encryptedData, iv]);
-
-            res.status(200).json({
-                message: "File uploaded, processed, and encrypted successfully",
-                fileId,
-                fileName: file.originalname,
-            });
-        } catch (error) {
-            console.error("Error:", error.message);
-            res.status(500).json({ message: "Server error" });
-        }
-    });
-});
-
-
-// Endpoint to mask unencrypted file
-app.post("/mask", async (req, res) => {
-    const userKey = req.body.key;
-    const fileId = req.body.fileId;
-    const columnsToMask = req.body.columnsToMask;
-
-    // Log the columnsToMask for debugging
-    console.log("Received columnsToMask:", columnsToMask);
-
-    if (!fileId) {
-        return res.status(400).send({ message: "File ID is required" });
-    }
-
-    if (!userKey || userKey.length < 8) {
-        return res.status(400).send({ message: "Decryption key must be at least 8 characters long" });
-    }
-
-    const hashedKey = hashKey(userKey);
-
-    const queryFetch = "SELECT file_id, file_data, iv FROM user_files WHERE file_id = ? LIMIT 1";
-
-    db.query(queryFetch, [fileId], async (err, results) => {
-        if (err) {
-            console.error("Database error:", err);
-            return res.status(500).send({ message: "Failed to fetch file data" });
-        }
-
-        if (results.length === 0) {
-            return res.status(404).send({ message: "No file found with the given ID" });
-        }
-
-        const { file_id, file_data, iv } = results[0];
-        let decryptedContent;
-
-        try {
-            decryptedContent = decrypt(file_data, hashedKey, iv);
-        } catch (err) {
-            console.error("Decryption failed:", err);
-            return res.status(400).send({ message: "Invalid decryption key" });
-        }
-        console.log("DecryptedContent to mask", decryptedContent);
-        try {
-            // Send the decrypted content to the Flask API
-            const flaskResponse = await axios.post(
-                "http://localhost:5000/apply_masking_rules",
-                {
-                    content: decryptedContent,
-                    columnsToMask: columnsToMask // Include the columnsToMask in the request body
-                },
-                { headers: { "Content-Type": "application/json" } }
-            );
-            //console.log("Flask Response:", flaskResponse.data);
-
-            const maskedContent = flaskResponse.data.maskedContent; // Assume Flask sends this key
-            console.log("MaskedContent", maskedContent);
-            const readableStream = new stream.Readable();
-            readableStream.push(maskedContent);
-            readableStream.push(null);
-
-            const rows = [];
-            const headers = [];
-
-            readableStream
-                .pipe(csvParser())
-                .on("headers", (headerArray) => {
-                    headers.push(...headerArray);
-                })
-                .on("data", (row) => {
-                    rows.push(Object.values(row));
-                })
-                .on("end", () => {
-                    console.log("Headers:", headers);
-                    console.log("Rows:", rows);
-
-                    const queryUpdate = "UPDATE user_files SET masked_data = ? WHERE file_id = ?";
-                    db.query(queryUpdate, [Buffer.from(maskedContent, "utf8"), file_id], (updateErr) => {
-                        if (updateErr) {
-                            console.error(updateErr);
-                            return res.status(500).send({ message: "Failed to save masked data" });
-                        }
-                        res.send({ content: maskedContent, message: "Masked data saved successfully" });
-                    });
-                })
-                .on("error", (err) => {
-                    console.error(err);
-                    res.status(500).send({ message: "Failed to process masked data" });
-                });
-        } catch (error) {
-            console.error("Error calling Flask API:", error);
-            res.status(500).send({ message: "Failed to apply masking rules" });
-        }
-    });
-});
-
-// Masking rules (unchanged)
-const applyMaskingRules = (headers, rows) => {
-    const normalizedHeaders = headers.map((header) => header.trim().toLowerCase());
-    return rows.map((row) => {
-        return normalizedHeaders.map((header, index) => {
-            let cell = row[index];
-            switch (header) {
-                case "ic number":
-                    cell = cell ? cell.replace(/^(\d{6}).*$/, "$1******") : cell;
-                    break;
-                case "home address":
-                    cell = "Address Hidden";
-                    break;
-                case "phone number":
-                    cell = cell ? cell.replace(/(\d{3})\d+/g, (match, p1) => p1 + "-******") : cell;
-                    break;
-                case "email":
-                    cell = cell ? cell.replace(/^(.).*?(@.*)$/, "$1****$2") : cell;
-                    break;
-                case "place of birth":
-                    cell = "Place Hidden";
-                    break;
-                case "parent salary (rm)":
-                    if (cell) {
-                        const lowerBound = Math.floor(cell / 1000) * 1000;
-                        const upperBound = lowerBound + 1000;
-                        cell = `RM ${lowerBound}-${upperBound}`;
-                    }
-                    break;
-                default:
-                    break;
-            }
-            return cell;
-        });
-    });
-};
-app.post('/generate-signature', async (req, res) => {
-    const { fileContent, fileId } = req.body; // Get the file content and fileId from the frontend
-
-    if (!fileId) {
-        return res.status(400).send({ message: "File ID is required" });
-    }
-
-    const { signature, randomNumber } = await generateDigitalSignature(fileContent);
-
-    // Store the signature and hashed random number in the database
-    storeSignatureInDB(fileId, signature, randomNumber);
-
-    // Send the signature back in the response
-    res.json({ signature });
-});
-
-const generateDigitalSignature = async (fileContent) => {
-    const secretKey = process.env.SECRET_KEY;
-
-    // Generate a random number
-    const randomNumber = Math.random().toString(36).substring(2, 15);
-    console.log("random_number:", randomNumber);
-    // Combine file content, random number, and secret key for uniqueness
-    const uniqueData = `${fileContent}-${randomNumber}-${secretKey}`;
-
-    // Generate HMAC with SHA-256
-    const signature = crypto.createHmac('sha256', secretKey)
-        .update(uniqueData)
-        .digest('base64'); // Return the hash as a base64 string
-
-    // Hash the random number with bcrypt
-
-
-    return { signature, randomNumber };
-};
-
-const storeSignatureInDB = (fileId, signature, randomNumber) => {
-    const query = 'UPDATE user_files SET digital_signature = ?, random_number = ? WHERE file_id = ?';
-
-    db.query(query, [signature, randomNumber, fileId], (error, results) => {
-        if (error) {
-            console.error('Error updating the signature and hashed random number:', error);
-        } else {
-            console.log('Signature and hashed random number updated successfully');
-        }
-    });
-};
-
-app.post('/verify-signature', async (req, res) => {
-    const { fileContent, signature: extractedSignature, fileId } = req.body;
-
-    // Log the file content to console
-    console.log("Received file content:", fileContent);
-
-    console.log("Received signature:", extractedSignature);
-
-    try {
-        const queryFetch = "SELECT digital_signature, random_number FROM user_files WHERE file_id = ? LIMIT 1";
-
-        db.query(queryFetch, [fileId], async (err, results) => {
-            if (err) {
-                console.error('Database error:', err);
-                return res.status(500).send({ message: "Failed to fetch file data" });
-            }
-
-            if (results.length === 0) {
-                console.warn('No file found with the given ID');
-                return res.status(404).send({ message: "No file found with the given ID" });
-            }
-
-            const { digital_signature, random_number } = results[0];
-
-            // Compare the extracted signature with the stored signature
-            if (digital_signature !== extractedSignature) {
-                return res.status(400).json({ message: 'Digital signature does not match.' });
-            }
-
-            // Generate and verify the original signature using the file content and random number
-            const secretKey = process.env.SECRET_KEY;
-            const uniqueData = `${fileContent}-${random_number}-${secretKey}`;
-            const generatedSignature = crypto
-                .createHmac('sha256', secretKey)
-                .update(uniqueData)
-                .digest('base64');
-
-            console.log(generatedSignature);
-
-            if (generatedSignature !== digital_signature) {
-                return res.status(400).json({ message: 'File content or random number tampered.' });
-            }
-
-            return res.status(200).json({ isValid: true, message: 'Signature is valid.' });
-        });
-    } catch (error) {
-        console.error('Error verifying signature:', error);
-        return res.status(500).json({ message: 'Server error.' });
-    }
-});
-
-app.post("/file", (req, res) => {
-    const { decryptionKey, fileId } = req.body; // Access data from the request body
-    console.log("Received decryption key:", decryptionKey);
-
-    if (!decryptionKey || decryptionKey.length < 8) {
-        return res.status(400).send({ message: "Decryption key must be at least 8 characters long" });
-    }
-
-    const hashedKey = hashKey(decryptionKey); // Hash the user-provided key
-    const queryFetch = "SELECT file_id, file_data, iv FROM user_files WHERE file_id = ? LIMIT 1";
-
-    db.query(queryFetch, [fileId], async (err, results) => {
-        if (err) {
-            console.error('Database error:', err);
-            return res.status(500).send({ message: "Failed to fetch file data" });
-        }
-
-        if (results.length === 0) {
-            console.warn('No file found with the given ID');
-            return res.status(404).send({ message: "No file found with the given ID" });
-        }
-
-        const { file_id, file_data, iv } = results[0];
-        console.log("File id:", file_id);
-        console.log("Fetched IV:", iv);
-        console.log("Fetched file data from database:", file_data);
-
-        let decryptedContent;
-        try {
-            decryptedContent = decrypt(file_data, hashedKey, iv);
-        } catch (err) {
-            console.error("Decryption failed:", err);
-            return res.status(400).send({ message: "Invalid decryption key" });
-        }
-
-        if (!decryptedContent || decryptedContent.trim() === "") {
-            console.error("Decrypted content is empty");
-            return res.status(400).send({ message: "Decrypted content is empty" });
-        }
-
-        console.log("Decrypted content to unmask:", decryptedContent);
-        try {
-            const form = new FormData();
-            form.append("file", Buffer.from(decryptedContent), {
-                filename: `decrypted_file.csv`,
-                contentType: "text/csv",
-            });
-
-            const response = await axios.post("http://127.0.0.1:5000/deProcessFile", form, {
-                headers: form.getHeaders(),
-            });
-
-            const decipherData = response.data;
-            if (!decipherData) {
-                console.error("Flask returned empty or invalid data");
-                return res.status(500).send({ message: "Failed to receive valid data from Flask" });
-            }
-
-            //console.log("Deciphered data:", decipherData);
-            res.send({ content: decipherData, message: "Successfully unmasked the data" }); // Send Flask's response back to the client
-        } catch (axiosError) {
-            console.error("Error sending data to Flask:", axiosError.message);
-            res.status(500).send({ message: "Failed to process the file with Flask" });
-        }
-    });
-});
 app.post('/verify-captcha', async (req, res) => {
     const { captchaValue, decryptionKey } = req.body; // Access from body
 
@@ -1072,40 +640,6 @@ app.post('/verify-captcha', async (req, res) => {
         res.status(500).json({ success: false, message: 'Error verifying CAPTCHA.' });
     }
 });
-app.delete("/deleteFile", async (req, res) => {
-    const { id } = req.body;
-    console.log("id:",id);
-  
-    if (!id) {
-      return res.status(400).json({ message: "File ID is required." });
-    }
-  
-    try {
-      // Define the SQL query
-      const queryFetch = "DELETE FROM user_files WHERE file_id = ?";
-  
-      // Execute the query with the provided file ID
-      db.query(queryFetch, [id], (err, results) => {
-        if (err) {
-          console.error("Error deleting file from database:", err);
-          return res.status(500).json({ message: "An error occurred while deleting the file." });
-        }
-  
-        // Check if any rows were affected
-        if (results.affectedRows === 0) {
-          return res.status(404).json({ message: "File not found." });
-        }
-  
-        res.status(200).json({ message: "File deleted successfully." });
-      });
-    } catch (error) {
-      console.error("Error deleting file from database:", error);
-      res.status(500).json({ message: "An error occurred while deleting the file." });
-    }
-  });
-  
-  
-  
 // POST route for sending email
 app.post('/send-feedback', async (req, res) => {
     const { name, email, message } = req.body;

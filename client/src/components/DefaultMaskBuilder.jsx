@@ -89,7 +89,7 @@ const DefaultMaskBuilder = ({ isOpen, onClose, fileId, onMaskedUpdate, HandleMas
                 key: decryptionKey,
                 columnsToMask,
                 
-            });
+            }, { withCredentials: true });
 
             if (!response.data || !response.data.content) {
                 throw new Error("No masked content returned from the server.");

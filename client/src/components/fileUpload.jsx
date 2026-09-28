@@ -80,7 +80,7 @@ const FileUpload = ({ uploadedFiles, setUploadedFiles }) => {
                 decryptionKey,
                 fileId,
 
-            });
+            }, { withCredentials: true });
 
             const encryptedCSV = response.data.content;
 
@@ -336,6 +336,7 @@ const FileUpload = ({ uploadedFiles, setUploadedFiles }) => {
                 console.log(`Extracted signature for ${file.name}: ${extractedSignature}`);
 
                 const response = await fetch('http://localhost:8081/verify-signature', {
+                    credentials: 'include',
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ fileContent, signature: extractedSignature, fileId }),

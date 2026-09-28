@@ -23,6 +23,7 @@ const FileContent = ({ fileName, fileData, fileId, onMaskedUpdate, columns }) =>
     const fileContent = Papa.unparse(displayedFileData);
 
     const response = await fetch('http://localhost:8081/generate-signature', {
+      credentials: 'include',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

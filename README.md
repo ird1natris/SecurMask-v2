@@ -14,7 +14,7 @@ Our subsequent contributions focus on **refactoring, maintenance and deployment 
 
 During the refactoring and deployment work, the project was temporarily named **Classifile**. We have returned to **SecurMask** as the project identity to maintain continuity with the original student work. Historical Classifile commits remain as an accurate record of that development stage.
 
-The repository is currently hosted at [itsFiz/Classifile](https://github.com/itsFiz/Classifile). Application branding, the original logo, email copy and planning documents now use SecurMask. The GitHub repository URL remains unchanged. Existing browser-storage namespaces are retained internally so saved files and preferences remain accessible.
+The repository is currently hosted at [itsFiz/SecurMask](https://github.com/itsFiz/SecurMask). Application branding, the original logo, email copy and planning documents now use SecurMask. The GitHub repository has also been renamed to SecurMask. Existing browser-storage namespaces are retained internally so saved files and preferences remain accessible.
 
 ### Attribution and license
 

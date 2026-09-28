@@ -1,9 +1,9 @@
 # SecurMask frontend revamp — product requirements
 
-Status: ready for implementation planning  
-Date: 2026-09-28  
+Status: ready for implementation planning
+Date: 2026-09-28
 Scope: complete frontend experience, responsive design system, React Hot Toast, installable PWA
-Brand constraint: preserve SecurMask, the original student attribution and the existing SecurMask logo. This is a UI refactor, not a replacement product identity.  
+Brand constraint: preserve SecurMask, the original student attribution and the existing SecurMask logo. This is a UI refactor, not a replacement product identity.
 This document specifies the revamp; it does not mean the interface or PWA has already been implemented.
 
 ## 1. Product intent

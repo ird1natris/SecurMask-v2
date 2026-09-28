@@ -1,6 +1,6 @@
 # Deploy SecurMask on Railway
 
-Deploy main from [itsFiz/Classifile](https://github.com/itsFiz/Classifile). Create one project with four services named exactly as below.
+Deploy main from [itsFiz/SecurMask](https://github.com/itsFiz/SecurMask). Create one project with four services named exactly as below.
 
 ## 1. Prepare credentials
 

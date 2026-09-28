@@ -1,3 +1,4 @@
+import { apiUrl } from '../utils/api.js';
 import React, { useState } from 'react';
 import { Vector } from '../assets';
 import styles from '../style';
@@ -31,7 +32,7 @@ const ContactUs = ({ onLogout }) => {
 
     try {
       // Send form data to backend
-      const response = await fetch('http://localhost:8081/send-feedback', {
+      const response = await fetch(apiUrl('/send-feedback'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -1,4 +1,4 @@
-import logo from './logo.png';
+import logo from './classifile.svg';
 import menu from './menu.png';
 import people01 from './people01.png';
 import close from './close.png';

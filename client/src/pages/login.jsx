@@ -1,3 +1,4 @@
+import { apiUrl } from '../utils/api.js';
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
@@ -42,9 +43,8 @@ const Login = ({ onLoginSuccess }) => {
     }
 
     // Perform login request
-    axios.post('http://localhost:8081/login', values, { withCredentials: true })
+    axios.post(apiUrl('/login'), values, { withCredentials: true })
       .then(res => {
-        console.log("response from server", res);
         if (res.data.Status === 'Success') {
           setEmail(values.email);
           setOtpModalVisible(true); // Show OTP modal when login is successful
@@ -81,7 +81,7 @@ const Login = ({ onLoginSuccess }) => {
 
     // Send OTP for verification
     axios.post(
-      'http://localhost:8081/verify-otp-login',
+      apiUrl('/verify-otp-login'),
       { email, otp },
       { withCredentials: true }
     )
@@ -124,7 +124,7 @@ const Login = ({ onLoginSuccess }) => {
       });
     }, 1000);
 
-    axios.post('http://localhost:8081/resend-otp', { email: email }, { withCredentials: true })
+    axios.post(apiUrl('/resend-otp'), { email: email }, { withCredentials: true })
       .then(res => {
         alert('OTP sent again!');
       })

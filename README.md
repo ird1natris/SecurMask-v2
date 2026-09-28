@@ -2,73 +2,73 @@
 
 **Share the data. Keep the details private.**
 
-Classifile is a privacy workbench for CSV and Excel datasets. Users can identify sensitive columns, apply masking rules, and recover encrypted original data using their key.
+Classifile is a CSV/XLSX privacy workbench. Upload a dataset, choose sensitive columns to mask, download the result, and recover the encrypted original with your file key.
 
-## Project origin and attribution
+## Origin and attribution
 
-Classifile is a refactor of [SecurMask-v1](https://github.com/ird1natris/SecurMask-v1), originally authored by Irdina Batrisyia. This repository carries forward the original Git history, so GitHub may list the original author among its contributors. That reflects authorship of the upstream code; it does not by itself indicate involvement in the current Classifile refactor or repository access.
+Classifile is a refactor of [SecurMask-v1](https://github.com/ird1natris/SecurMask-v1), originally authored by Irdina Batrisyia. The inherited Git history explains why GitHub lists the upstream author as a contributor; it does not imply involvement in this refactor or repository access. The original [MIT copyright notice](LICENSE) is preserved.
 
-The Classifile refactor is maintained in [itsFiz/Classifile](https://github.com/itsFiz/Classifile). The original MIT license and copyright notice are preserved in [LICENSE](LICENSE).
+The refactor is maintained in [itsFiz/Classifile](https://github.com/itsFiz/Classifile).
 
-## What has changed
+## Architecture
 
-- Replaced MySQL with PostgreSQL and versioned SQL migrations.
-- Moved new file contents to filesystem storage suitable for a Railway persistent volume; PostgreSQL retains metadata.
-- Added authentication and ownership checks to file operations.
-- Added upload limits, transactional cleanup tracking, and a migration path for legacy database-stored files.
-- Added automatic schema and legacy-file migration before API startup.
-- Added database, storage, and HTTP file-flow integration tests.
+This is a monorepo with three deployable services:
 
-The user interface and some email templates still use the original SecurMask branding while the refactor is in progress.
-
-## Application structure
-
-| Directory | Purpose |
+| Directory / entry point | Service |
 | --- | --- |
-| client/ | React and Vite frontend |
-| server/server.js | Express API, accounts and authentication |
-| server/file-routes.js | Authenticated file operations |
-| server/main_app.py | Flask masking and data processing |
-| server/migrations/ | PostgreSQL schema migrations |
-| server/test/ | Database and storage integration tests |
+| client/ | React/Vite, served by Caddy; proxies /api to Node |
+| server/start-api.js | Express API, authentication, PostgreSQL migrations, upload volume |
+| server/main_app.py | Private Flask/Gunicorn dataset processor |
 
-The secure_mask/ directory contains a legacy package manifest, not the active frontend.
+PostgreSQL is a fourth Railway service. Only the web service needs a public domain. The root and secure_mask package manifests are inherited artifacts, not additional deployed services.
+
+## Refactor changes
+
+- PostgreSQL with numbered migrations applied automatically before API startup.
+- Persistent volume storage, owner checks, bounded uploads and retryable file cleanup.
+- Same-origin API routing, production cookies, request-origin validation and rate limits.
+- Password-bound login challenges, expiring single-use login/reset codes, attempt limits, and session invalidation after a password reset.
+- Resend HTTPS email delivery, with optional SMTP.
+- Private processor authentication, production Gunicorn startup and health endpoints.
+- CSV values preserved before encryption; older files retain their recovery path.
+- Account-specific browser caches, escaped column previews and Classifile branding.
+- No installed dependencies, secrets or uploaded datasets tracked in Git.
+
+## Deploy on Railway
+
+Follow [RAILWAY.md](RAILWAY.md) for all four services, environment variables, volume setup, autodeploy and verification. Dockerfiles are included for each application service. Deployment still requires your Railway project, verified email sender and reCAPTCHA credentials.
 
 ## Local development
 
-Use a supported Node.js LTS release compatible with the dependencies, Python, and PostgreSQL.
+Use Node 22 or 24, Python 3.12, and PostgreSQL 17.
 
-1. Clone this repository.
-2. Run npm ci in client/ and server/ to install their locked dependencies.
-3. Create an empty PostgreSQL database and copy server/.env.example to server/.env.
-4. Configure the database connection, signing secret, email credentials and reCAPTCHA settings.
-5. Install Python dependencies from server/requirements.txt. The current requirements still need faker and fuzzywuzzy added; install those too for local processing.
-6. In server/, run npm start to launch the Node API and Flask development server. The API applies pending migrations automatically.
-7. In client/, run npm run dev.
+1. Run `npm ci` in both `client/` and `server/`.
+2. Create a PostgreSQL database called `classifile`.
+3. Copy `server/.env.example` to `server/.env` and `client/.env.example` to `client/.env`. Configure email, reCAPTCHA, database and two independent secrets.
+4. Create and activate a Python virtual environment in `server/.venv`; run `pip install -r requirements.txt` from `server/`.
+5. From `server/` run `npm start`. This starts Flask on 5000 and Node on 8081; migrations run automatically.
+6. From `client/` run `npm run dev` and use `http://localhost:5173`.
 
-Use npm run start:api from server/ to start only the API. New schema changes belong in sequential SQL files such as 003_add_file_size.sql; already-applied migrations are skipped.
-
-## File storage
-
-Development defaults to server/uploads/, which is ignored by Git. Production requires UPLOAD_DIR or a Railway volume mount variable. Original content is encrypted; masked output is stored as processed content. File access is restricted to its owner.
-
-See [PostgreSQL setup](server/POSTGRES.md) and [persistent storage setup](server/STORAGE.md) for environment variables, migration behavior and Railway mounting instructions.
+Use `npm run start:api` for Node alone. The Vite development proxy forwards /api requests. Register localhost in your reCAPTCHA v2 checkbox configuration.
 
 ## Verification
 
-- Run npm test in server/ for the database and file-storage tests.
-- Run npm run build in client/ for the frontend production build.
+- `cd server && npm test` â€” authentication, migrations, volume storage and HTTP file flows.
+- `cd server && python -m unittest test_processor -v` â€” real CSV/XLSX preservation and processor access controls.
+- `cd client && npm run build` â€” frontend production build.
+- Set `FLASK_TEST_URL` and matching `PROCESSOR_SECRET` when running Node tests to exercise the real processor.
+- Set `TEST_DATABASE_URL` to a disposable PostgreSQL database to enable the live PostgreSQL test. It uses and removes a dedicated test schema.
 
-Tests use disposable filesystem storage and embedded PostgreSQL. HTTP file-flow tests stub the processor; they do not replace a live PostgreSQL, Flask and email smoke test.
+[GitHub Actions](.github/workflows/ci.yml) uses Node 22, Python 3.12 and PostgreSQL 17, tests real Flask integration, builds all three images, and smoke-tests the Caddy proxy and API restart/migration path.
 
-## Deployment status
+## Data handling and current limits
 
-The refactor is not yet ready for a complete public Railway deployment. Remaining work includes replacing frontend localhost URLs, production routing and cookie configuration, an appropriate email-delivery integration, Python production dependencies, health endpoints, and the remaining authentication fixes identified during review.
+The API stores encrypted originals and plaintext masked outputs on its private volume. Encryption keys are supplied by the user and are not stored by the API. Keep the key: it is required for recovery. Encryption uses the inherited AES-256-CBC format; this is not an end-to-end encrypted service because processing decrypts data on the server.
 
-The intended deployment has a frontend, Node API, Flask processor and PostgreSQL service, with a dedicated upload volume attached to the API.
+The UI still caches dataset content in IndexedDB on the current browser, separated by account. It is not a cross-device file library; clearing browser data loses that local catalog. Browser caches are not encrypted at rest. Use a trusted browser profile for sensitive datasets. Masking rules are heuristic and may retain partial values; inspect output before sharing.
 
-## Repository hygiene
+The browser upload limit is 5 MiB; the API ceiling is 10 MiB. Processing is bounded to 100,000 rows, 200 columns and 50 MiB expanded XLSX data. Excel precision already lost in numeric cells cannot be recovered. Files are processed in memory. Start with one replica per service.
 
-Installed node_modules directories are not source files and must not be committed. Install dependencies with npm ci; keep package.json and package-lock.json tracked. Environment secrets and local uploads must remain outside Git.
+See [database notes](server/POSTGRES.md) and [storage notes](server/STORAGE.md) for migration and backup behavior. The supplied MySQL dumps were used for schema design only; their records have not been imported.
 
-Previously committed dependencies have been removed from the current tree. They remain in historical commits because the upstream history is preserved.
+Previously committed node_modules were removed from the current tree. They remain in historical commits because upstream history is preserved. Install dependencies with `npm ci`.

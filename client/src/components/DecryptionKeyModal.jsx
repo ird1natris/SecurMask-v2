@@ -1,3 +1,4 @@
+import { apiUrl } from '../utils/api.js';
 import React, { useState } from "react";
 import ReCAPTCHA from "react-google-recaptcha";
 import { Eye, EyeOff } from "lucide-react"; // Import icons from Lucide React
@@ -21,13 +22,13 @@ const DecryptionKeyModal = ({ isOpen, onSubmit, onClose }) => {
         }
 
         try {
-            const response = await fetch("http://localhost:8081/verify-captcha", {
+            const response = await fetch(apiUrl('/verify-captcha'), {
+                credentials: "include",
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                    decryptionKey, // Optional if your server needs it
                     captchaValue, // Send the captcha token
                 }),
             });
@@ -82,10 +83,11 @@ const DecryptionKeyModal = ({ isOpen, onSubmit, onClose }) => {
 
                 {/* CAPTCHA */}
                 <div className="my-4">
-                    <ReCAPTCHA
-                        sitekey="6Lctz6UqAAAAAKFVh3ktub0MeKyw1RzbITdn2ij5" // Replace with your reCAPTCHA site key
+                    {import.meta.env.VITE_RECAPTCHA_SITE_KEY ? <ReCAPTCHA
+                        sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY || ""}
                         onChange={handleCaptchaChange}
-                    />
+                        onExpired={() => setCaptchaValue(null)}
+                    /> : <p className="text-red-500">Verification is unavailable. Please contact the administrator.</p>}
                     {captchaError && <p className="text-red-500 text-sm mt-2">{captchaError}</p>}
                 </div>
 

@@ -1,5 +1,7 @@
 import { pathToFileURL } from 'node:url';
 import db from './db.js';
+import { loadConfig } from './config.js';
+import { createMailer } from './mail.js';
 import { migrate } from './migrate.js';
 import { configuredStorage } from './storage.js';
 import { createFileRepository } from './file-repository.js';
@@ -21,6 +23,8 @@ export async function prepareApi({ database, storage, start }) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
     try {
+        loadConfig();
+        createMailer();
         await prepareApi({
             database: db,
             storage: configuredStorage(),

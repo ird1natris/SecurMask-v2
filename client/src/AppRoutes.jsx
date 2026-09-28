@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { About, ContactUs, Home, Login, Registration, ForgotPassword, Data,FileDisplay,Setting } from './pages';
 
 const AppRoutes = ({ authenticated, handleLoginSuccess, handleLogout }) => {
@@ -21,6 +21,7 @@ const AppRoutes = ({ authenticated, handleLoginSuccess, handleLogout }) => {
           <Route path="/forgot-password" element={<ForgotPassword />} />
         </>
       )}
+      <Route path="*" element={<Navigate to={authenticated ? "/homepage" : "/"} replace />} />
     </Routes>
   );
 };

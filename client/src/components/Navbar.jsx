@@ -1,3 +1,4 @@
+import { cacheKey } from '../utils/indexedDBUtils';
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom'; // Import useLocation
 import { people01, logo, dots, close } from '../assets';
@@ -27,7 +28,7 @@ const Navbar = () => {
 
   // Load profile image from localStorage on component mount
   useEffect(() => {
-    const storedProfileImage = localStorage.getItem('profileImage');
+    const storedProfileImage = localStorage.getItem(cacheKey('profileImage'));
     if (storedProfileImage) {
       setProfileImage(storedProfileImage); // Set profile image from localStorage
     }
@@ -36,7 +37,7 @@ const Navbar = () => {
   return (
     <nav className='w-full flex py-4 justify-between items-center navbar'>
       <Link to="/homepage">
-        <img src={logo} alt="SecurMask" className='w-[175px] h-[36px] ml-10' />
+        <img src={logo} alt="Classifile" className='w-[175px] h-[36px] ml-10' />
       </Link>
 
       <ul className='list-none sm:flex hidden justify-end items-center flex-1'>

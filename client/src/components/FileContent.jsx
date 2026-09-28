@@ -1,3 +1,4 @@
+import { apiUrl } from '../utils/api.js';
 import React, { useState, useEffect } from 'react';
 import Papa from 'papaparse';
 import { RefreshCcw, Save, Download } from 'lucide-react';
@@ -22,7 +23,7 @@ const FileContent = ({ fileName, fileData, fileId, onMaskedUpdate, columns }) =>
   const handleDownload = async () => {
     const fileContent = Papa.unparse(displayedFileData);
 
-    const response = await fetch('http://localhost:8081/generate-signature', {
+    const response = await fetch(apiUrl('/generate-signature'), {
       credentials: 'include',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -32,6 +33,10 @@ const FileContent = ({ fileName, fileData, fileId, onMaskedUpdate, columns }) =>
       }),
     });
 
+    if (!response.ok) {
+      alert("Unable to sign this download. Please log in again and retry.");
+      return;
+    }
     const { signature } = await response.json();
     const fileWithSignature = `${fileContent}\n\n--DIGITAL-SIGNATURE--\n${signature}`;
 

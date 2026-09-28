@@ -1,5 +1,8 @@
-flask
-flask-cors
-pandas
-openpyxl
-cryptography
+Flask>=3.1,<4
+pandas>=2.2,<3
+openpyxl>=3.1,<4
+Faker>=33,<40
+fuzzywuzzy==0.18.0
+python-Levenshtein>=0.27,<0.28
+gunicorn>=23,<24
+python-dotenv>=1,<2

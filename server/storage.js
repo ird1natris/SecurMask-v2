@@ -17,6 +17,7 @@ export function createStorage(root) {
             await mkdir(root, { recursive: true, mode: 0o700 });
             await access(root, constants.W_OK | constants.R_OK);
         },
+        async check() { await access(root, constants.W_OK | constants.R_OK); },
         async put(bytes) {
             const key = randomUUID() + '.bin';
             const target = path(key);

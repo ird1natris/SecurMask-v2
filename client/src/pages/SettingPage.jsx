@@ -1,3 +1,5 @@
+import { cacheKey } from '../utils/indexedDBUtils';
+import { apiUrl } from '../utils/api.js';
 import React, { useEffect, useState } from "react";
 import Sidebar from '../components/sideBar'; // Ensure correct import
 import Navbar from '../components/Navbar'; // Ensure correct import
@@ -56,7 +58,7 @@ const SettingsPage = ({ onLogout }) => {
         setMessage('');
 
         try {
-            const response = await axios.post('http://localhost:8081/forgot-password', { email });
+            const response = await axios.post(apiUrl('/forgot-password'), { email });
             if (response.data.Status) {
                 setMessage('OTP has been sent to your email.');
                 setOtpSent(true); // Mark OTP as sent
@@ -90,7 +92,7 @@ const SettingsPage = ({ onLogout }) => {
         setMessage('');
 
         try {
-            const response = await axios.post('http://localhost:8081/verify-otp', { email, otp });
+            const response = await axios.post(apiUrl('/verify-otp'), { email, otp });
             if (response.data.Status) {
                 setOtpVerified(true);
                 setMessage('OTP verified. Please enter your new password.');
@@ -113,7 +115,7 @@ const SettingsPage = ({ onLogout }) => {
         setMessage('');
 
         try {
-            const response = await axios.post('http://localhost:8081/forgot-password', { email });
+            const response = await axios.post(apiUrl('/forgot-password'), { email });
             if (response.data.Status) {
                 setMessage('A new OTP has been sent to your email.');
                 setTimer(300); // Reset timer to 10 minutes
@@ -149,7 +151,7 @@ const SettingsPage = ({ onLogout }) => {
 
         try {
             // API request to update password 
-            const response = await axios.post("http://localhost:8081/reset-password", {
+            const response = await axios.post(apiUrl('/reset-password'), {
                 email,
                 newPassword,
                 otp,
@@ -185,8 +187,8 @@ const SettingsPage = ({ onLogout }) => {
 
 
     useEffect(() => {
-        const savedUserInfo = localStorage.getItem("userInfo");
-        const savedProfileImage = localStorage.getItem('profileImage');
+        const savedUserInfo = localStorage.getItem(cacheKey('userInfo'));
+        const savedProfileImage = localStorage.getItem(cacheKey('profileImage'));
         if (savedUserInfo) {
             setUserInfo(JSON.parse(savedUserInfo));
 
@@ -206,7 +208,7 @@ const SettingsPage = ({ onLogout }) => {
             const reader = new FileReader();
             reader.onloadend = () => {
                 setProfileImage(reader.result);
-                localStorage.setItem('profileImage', reader.result);// Set the new image as the profile image
+                localStorage.setItem(cacheKey('profileImage'), reader.result);// Set the new image as the profile image
             };
             reader.readAsDataURL(file); // Read the file as a data URL (base64)
         }
@@ -218,7 +220,7 @@ const SettingsPage = ({ onLogout }) => {
         const { name, value } = e.target;
         setUserInfo((prev) => {
             const updatedUserInfo = { ...prev, [name]: value };
-            localStorage.setItem('userInfo', JSON.stringify(updatedUserInfo));
+            localStorage.setItem(cacheKey('userInfo'), JSON.stringify(updatedUserInfo));
             return updatedUserInfo;
         })
     }

@@ -14,11 +14,31 @@ import csv
 import io
 import re
 from collections import defaultdict
-from flask_cors import CORS
+import hmac
+import zipfile
+from pathlib import Path
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).with_name(".env"))
 
 # Initialize Flask app
 main_app = Flask(__name__)
-CORS(main_app)
+main_app.config["MAX_CONTENT_LENGTH"] = 12 * 1024 * 1024
+PROCESSOR_SECRET = os.environ.get("PROCESSOR_SECRET", "")
+if os.environ.get("NODE_ENV") == "production" and len(PROCESSOR_SECRET) < 32:
+    raise RuntimeError("PROCESSOR_SECRET must contain at least 32 characters")
+
+@main_app.before_request
+def authorize():
+    if request.content_length and request.content_length > main_app.config["MAX_CONTENT_LENGTH"]:
+        return jsonify({"error": "Request too large"}), 413
+    if request.path != "/health" and (not PROCESSOR_SECRET or not hmac.compare_digest(
+            request.headers.get("X-Processor-Secret", ""), PROCESSOR_SECRET)):
+        return jsonify({"error": "Unauthorized"}), 401
+
+@main_app.get("/health")
+def health():
+    return jsonify({"status": "ok", "service": "classifile-processor"})
+
 # Initialize Faker
 fake = Faker()
 # Dictionary to store gender pseudonym mappings
@@ -733,7 +753,6 @@ def cipher_data(value, column_name=None):
     """ Mask data based on the type of value and column name. """
     if column_name:
         column_name = preprocess_column_name(column_name)
-        print(f"Processing column: {column_name} with value: {value}")  # Debugging line
 
         
         # Fuzzy matching to detect Birth Date-related columns
@@ -769,7 +788,6 @@ def decipher_data(value, column_name=None):
     """ Mask data based on the type of value and column name. """
     if column_name:
         column_name = preprocess_column_name(column_name)
-        print(f"Processing column: {column_name} with value: {value}")  # Debugging line
 
         # Fuzzy matching to detect Birth Date-related columns
         if any(fuzz.partial_ratio(column_name, keyword) > 80 for keyword in BIRTH_DATE_KEYWORDS):
@@ -807,7 +825,6 @@ def mask_data(value, column_name=None, columns_to_mask=None):
     # Apply masking for columns that are in columns_to_mask
     if columns_to_mask and column_name in columns_to_mask:
         column_name = preprocess_column_name(column_name)
-        print(f"Processing column: {column_name} with value: {value}")  # Debugging line
 
         # Fuzzy matching to detect race-related columns
         if any(fuzz.partial_ratio(column_name, keyword) > 80 for keyword in RACE_KEYWORDS):
@@ -873,224 +890,88 @@ def mask_data(value, column_name=None, columns_to_mask=None):
         return 'XXXXXX'  # Mask the string data
     elif isinstance(value, (int, float)):
         return '*****'  # Mask the numeric data
-    elif isinstance(value, datetime.datetime):
+    elif isinstance(value, datetime):
         return mask_date(value)  # Mask date data
     return fake.text(max_nb_chars=20)  # Generate a fake text for unknown types
 
-@main_app.route("/detect_columns", methods=["POST"])
-def detect_columns():
+# Preserve textual values, including leading zeros and literal NA values.
+# XLSX numeric cells already rounded by Excel cannot be restored.
+def read_upload():
     file = request.files.get("file")
-    if not file or not allowed_file(file.filename):
-        return jsonify({"error": "No file uploaded or file format not supported"}), 400
+    if not file or not file.filename.lower().endswith((".csv", ".xlsx")):
+        raise ValueError("Upload a CSV or XLSX file.")
+    content = file.read()
+    if len(content) > 10 * 1024 * 1024:
+        raise ValueError("File exceeds the 10 MiB limit.")
+    if file.filename.lower().endswith(".csv"):
+        frame = pd.read_csv(StringIO(content.decode("utf-8-sig")), dtype=str, keep_default_na=False)
+    else:
+        with zipfile.ZipFile(BytesIO(content)) as archive:
+            if sum(item.file_size for item in archive.infolist()) > 50 * 1024 * 1024:
+                raise ValueError("Expanded spreadsheet exceeds the limit.")
+        frame = pd.read_excel(BytesIO(content), dtype=str, keep_default_na=False)
+    if len(frame) > 100000 or len(frame.columns) > 200:
+        raise ValueError("Limit is 100,000 rows and 200 columns.")
+    return frame
 
+def output_csv(frame, transform=None):
+    output = StringIO()
+    writer = csv.writer(output, lineterminator="\n")
+    writer.writerow(frame.columns)
+    for row in frame.itertuples(index=False, name=None):
+        writer.writerow([transform(str(value), column) if transform else value
+                         for column, value in zip(frame.columns, row)])
+    content = output.getvalue()
+    if len(content.encode("utf-8")) > 10 * 1024 * 1024:
+        raise ValueError("Processed content exceeds the 10 MiB limit.")
+    return content
+
+@main_app.post("/detect_columns")
+def detect_columns():
     try:
-        # Read the file directly into memory (no saving to disk)
-        file_content = file.read()
+        return jsonify({"columns": read_upload().columns.tolist()})
+    except Exception:
+        return jsonify({"error": "Invalid or oversized CSV/XLSX file."}), 400
 
-        # If it's a CSV file, use StringIO to read the CSV content from memory
-        if file.filename.endswith('.csv'):
-            from io import StringIO
-            df = pd.read_csv(StringIO(file_content.decode('utf-8')))  # Read CSV directly from memory
+@main_app.post("/process_file")
+def process_file():
+    try:
+        return Response(output_csv(read_upload()), mimetype="text/csv")
+    except Exception:
+        return jsonify({"error": "Invalid or oversized CSV/XLSX file."}), 400
 
-        # If it's an Excel file, use BytesIO to read the Excel content from memory
-        elif file.filename.endswith('.xlsx'):
-            from io import BytesIO
-            df = pd.read_excel(BytesIO(file_content))  # Read Excel directly from memory
-
-        # Extract the column names and return them
-        columns = df.columns.tolist()
-        return jsonify({"columns": columns})
-
-    except Exception as e:
-        return jsonify({"error": f"Failed to process the file. Error: {str(e)}"}), 500
-
-#Function to apply masking rule 
-@main_app.route("/apply_masking_rules", methods=["POST"])
+@main_app.post("/apply_masking_rules")
 def apply_masking_rules():
     try:
-        # Extract the decrypted content and columnsToMask from the request
         data = request.get_json()
-        decrypted_content = data.get("content")
-        columns_to_mask = data.get("columnsToMask")  # Get columnsToMask from request
-        print("Decrypt Content Receive from Server:", decrypted_content)
+        content, columns = data.get("content"), data.get("columnsToMask")
+        if not isinstance(content, str) or not isinstance(columns, list) or not columns:
+            raise ValueError()
+        frame = pd.read_csv(StringIO(content), dtype=str, keep_default_na=False)
+        if any(not isinstance(c, str) or c not in frame.columns for c in columns):
+            raise ValueError()
+        # Scope pseudonym maps to one file, never across unrelated accounts.
+        global race_counter, religion_counter, gender_counter
+        race_pseudonym_mapping.clear()
+        religion_pseudonym_mapping.clear()
+        gender_pseudonym_mapping.clear()
+        race_counter = religion_counter = gender_counter = 1
+        legacy = data.get("contentFormat", "legacy-cipher") == "legacy-cipher"
+        def transform(value, column):
+            if column in columns:
+                return mask_data(value, column, columns)
+            return decipher_data(value, column) if legacy else value
+        return jsonify({"maskedContent": output_csv(frame, transform)})
+    except Exception:
+        return jsonify({"error": "Invalid content or masking selection."}), 400
 
-        # Log the columnsToMask for debugging
-        print("Received columnsToMask:", columns_to_mask)
-
-        if not decrypted_content:
-            return jsonify({"error": "No content provided"}), 400
-
-        # Parse the CSV content
-        input_stream = StringIO(decrypted_content)
-        output_stream = StringIO()
-        reader = csv.reader(input_stream)
-        writer = csv.writer(output_stream)
-
-        try:
-            headers = next(reader)
-            writer.writerow(headers)
-        except StopIteration:
-            return jsonify({"error": "Empty content or invalid CSV format"}), 400
-
-        for row in reader:
-            try:
-                masked_row = []
-                for idx, value in enumerate(row):
-                    column_name = headers[idx]
-
-                    if column_name in columns_to_mask:
-                        # If the column is selected for masking, apply mask_data
-                        value = mask_data(value, column_name, columns_to_mask)
-                    else:
-                        # If not selected and matches specific types, call decipher_data
-                        if any(
-                            fuzz.partial_ratio(preprocess_column_name(column_name), keyword) > 80
-                            for keyword in (
-                                BIRTH_DATE_KEYWORDS
-                                + IC_KEYWORDS
-                                + EMAIL_KEYWORDS
-                                + CREDIT_CARD_KEYWORDS
-                                + NAME_KEYWORDS
-                                + PHONE_KEYWORDS
-                                
-                            )
-                        ):
-                            value = decipher_data(value, column_name)
-
-                    masked_row.append(value)
-
-                writer.writerow(masked_row)
-            except Exception as e:
-                return jsonify({"error": f"Error masking row: {str(e)}"}), 500
-
-        output_stream.seek(0)
-        masked_content = output_stream.getvalue()
-        
-        return jsonify({"maskedContent": masked_content})
-
-    except Exception as e:
-        # General error handling
-        return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
-
-
-# Function to process uploaded file and mask the data
-def handle_scientific_notation(value):
-    """
-    Convert string representations of scientific notation to plain numeric strings.
-    """
+@main_app.post("/deProcessFile")
+def de_process_file():
+    # Compatibility for files uploaded before raw_csv format was introduced.
     try:
-        # Check if the value looks like scientific notation (e.g., "3.4539E+14")
-        if isinstance(value, str) and "E" in value.upper():
-            return str(int(float(value)))  # Convert scientific string to a plain integer string
-        return value  # Return as-is for non-scientific values
-    except ValueError:
-        return value  # Return original if conversion fails
+        return Response(output_csv(read_upload(), decipher_data), mimetype="text/csv")
+    except Exception:
+        return jsonify({"error": "Unable to recover legacy file."}), 400
 
-@main_app.route("/process_file", methods=["POST"])
-def process_file():
-    file = request.files.get("file")
-    if not file or not allowed_file(file.filename):
-        return jsonify({"error": "No file uploaded or file format not supported"}), 400
-
-    try:
-        # Read the file into memory without saving to disk
-        if file.filename.endswith('.csv'):
-            csv_data = file.read().decode("utf-8").replace('\r\n', '\n')  # Normalize line breaks
-            from io import StringIO
-            df = pd.read_csv(StringIO(csv_data))  # Ensure all columns are read as strings
-
-            # Explicitly process columns to convert string scientific notation to plain numbers
-            df = df.applymap(lambda x: handle_scientific_notation(x))
-        elif file.filename.endswith('.xlsx'):
-            df = pd.read_excel(BytesIO(file.read()))  # Read Excel directly from memory
-
-        # Create a memory buffer to store the processed CSV data
-        output = io.StringIO()
-        csv_writer = csv.writer(output)
-
-        # Write header
-        csv_writer.writerow(df.columns.tolist())
-
-        # Write processed rows
-        for _, row in df.iterrows():
-            processed_row = [cipher_data(row[col], col) for col in df.columns]
-            csv_writer.writerow(processed_row)
-
-        # Retrieve the processed CSV data from the memory buffer
-        csv_data = output.getvalue().replace('\r\n', '\n')  # Normalize line breaks
-
-        # Log the processed data for debugging
-        main_app.logger.info(f"Processed CSV Data:\n{csv_data}")
-        print(f"Processed CSV Data:\n{csv_data}")  # Print to console
-
-        # Return the processed file as a downloadable response
-        return Response(
-            csv_data,
-            mimetype="text/csv",
-            headers={"Content-Disposition": "attachment; filename=processed_file.csv"}
-        )
-
-    except Exception as e:
-        main_app.logger.error(f"Error processing file: {str(e)}")
-        print(f"Error processing file: {str(e)}")  # Print error to console
-        return jsonify({"error": f"Error processing file: {e}"}), 500
-
-@main_app.route('/deProcessFile', methods=['POST'])
-def deProcessFile():
-    file = request.files.get("file")
-    
-    if not file or not allowed_file(file.filename):
-        main_app.logger.error("No file sent or unsupported file format")
-        return jsonify({"error": "No file sent or file format not supported"}), 400
-
-    try:
-        # Log the received file content for debugging
-        file_content = file.read()
-        main_app.logger.debug(f"Received file content (truncated): {file_content[:500]}")  # Log first 500 characters
-        file.seek(0)  # Reset file pointer for further processing
-
-        # Process the file content based on the extension
-        if file.filename.endswith('.csv'):
-            cipher_csv_data = file_content.decode("utf-8").replace('\r\n', '\n')
-            from io import StringIO
-            # Read CSV into a DataFrame, treating all columns as strings
-            df = pd.read_csv(StringIO(cipher_csv_data), dtype=str)
-        elif file.filename.endswith('.xlsx'):
-            # Read Excel into a DataFrame, treating all columns as strings
-            df = pd.read_excel(BytesIO(file_content), dtype=str)
-        else:
-            main_app.logger.error("Unsupported file format")
-            return jsonify({"error": "Unsupported file format"}), 400
-
-        # Transform and process the data (decipher each row)
-        output = io.StringIO()
-        csv_writer = csv.writer(output)
-        csv_writer.writerow(df.columns.tolist())  # Write headers
-
-        for index, row in df.iterrows():
-            # Process each column in the row by applying the decipher logic
-            processed_row = [decipher_data(str(row[col]), col) for col in df.columns]
-            main_app.logger.debug(f"Processed row {index + 1}: {processed_row}")  # Log each processed row
-            csv_writer.writerow(processed_row)
-
-        # Get the processed CSV content from the StringIO object
-        decipher_csv_data = output.getvalue().replace('\r\n', '\n')
-
-        # Return the processed CSV data as a downloadable file
-        return Response(
-            decipher_csv_data,
-            mimetype="text/csv",
-            headers={"Content-Disposition": "attachment; filename=processed_file.csv"}
-        )
-
-    except Exception as e:
-        main_app.logger.error(f"Error processing cipher file: {str(e)}")
-        return jsonify({"error": f"Error processing cipher file: {e}"}), 500
-
-
-
-# Start the Flask app
 if __name__ == "__main__":
-     
-     main_app.run(debug=True, port=5000)
-
+    main_app.run(host="127.0.0.1", port=int(os.environ.get("PROCESSOR_PORT", 5000)), debug=False, threaded=False)

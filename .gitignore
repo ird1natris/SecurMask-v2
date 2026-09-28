@@ -5,3 +5,9 @@ client/.env
 
 # Local upload storage
 server/uploads/
+
+# Python environments and generated caches
+**/.venv/
+**/__pycache__/
+*.pyc
+.artifacts/

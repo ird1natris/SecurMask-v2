@@ -1,3 +1,4 @@
+import { apiUrl } from '../utils/api.js';
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import styles from '../style';
@@ -53,8 +54,7 @@ const Registration = () => {
 
     try {
       // Make the POST request to the backend
-      const response = await axios.post('http://localhost:8081/register', { fullName, email, password });
-      console.log('Registration successful:', response.data);
+      const response = await axios.post(apiUrl('/register'), { fullName, email, password });
       Swal.fire({
         icon: "success",
         title: "Account Registration Success",

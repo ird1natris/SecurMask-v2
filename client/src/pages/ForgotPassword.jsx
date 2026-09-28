@@ -1,3 +1,4 @@
+import { apiUrl } from '../utils/api.js';
 import { useState, useEffect } from 'react';
 import axios from 'axios'; // Ensure axios is installed
 import styles from '../style';
@@ -49,7 +50,7 @@ const ForgotPassword = () => {
         setMessage('');
 
         try {
-            const response = await axios.post('http://localhost:8081/forgot-password', { email });
+            const response = await axios.post(apiUrl('/forgot-password'), { email });
             if (response.data.Status) {
                 setMessage('OTP has been sent to your email.');
                 setStep('otp'); // Move to OTP verification step
@@ -75,7 +76,7 @@ const ForgotPassword = () => {
         setMessage('');
 
         try {
-            const response = await axios.post('http://localhost:8081/verify-otp', { email, otp });
+            const response = await axios.post(apiUrl('/verify-otp'), { email, otp });
             if (response.data.Status) {
                 setMessage('OTP verified. Please enter your new password.');
                 setStep('reset'); // Move to Password Reset step
@@ -105,7 +106,7 @@ const ForgotPassword = () => {
         }
 
         try {
-            const response = await axios.post('http://localhost:8081/reset-password', {
+            const response = await axios.post(apiUrl('/reset-password'), {
                 email,
                 otp,
                 newPassword,
@@ -145,7 +146,7 @@ const ForgotPassword = () => {
         setMessage('');
 
         try {
-            const response = await axios.post('http://localhost:8081/forgot-password', { email });
+            const response = await axios.post(apiUrl('/forgot-password'), { email });
             if (response.data.Status) {
                 setMessage('A new OTP has been sent to your email.');
                 setTimer(300); // Reset timer to 10 minutes

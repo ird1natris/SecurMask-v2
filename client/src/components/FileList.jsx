@@ -1,3 +1,4 @@
+import { apiUrl, escapeHtml } from '../utils/api.js';
 import React, { useState, useEffect } from 'react';
 import { SquareArrowOutUpRight, Trash2 } from 'lucide-react';
 import Papa from 'papaparse';
@@ -22,7 +23,6 @@ const FileList = ({ uploadedFiles, setUploadedFiles, onTab, onDelete, newTab }) 
     const fetchFiles = async () => {
       try {
         const files = await getFilesFromIndexedDB();
-        console.log("Fetched files:", files);
         setLocalFiles(files); // Update the state to reflect the fetched files
       } catch (error) {
         console.error("Error fetching files from IndexedDB:", error);
@@ -46,96 +46,6 @@ const FileList = ({ uploadedFiles, setUploadedFiles, onTab, onDelete, newTab }) 
     return true;
   };
 
-
-  const cleanUpUnmaskedFiles = async () => {
-    try {
-      const currentTime = new Date().getTime();
-      console.log("Current time:", currentTime);
-
-      const files = await getFilesFromIndexedDB();
-      console.log("Fetched files:", files);
-
-      const filesToRemove = files.filter(file => {
-        if (file.status === "unmask" && file.uploadedAt) {
-          const fileUploadTime = new Date(file.uploadedAt).getTime();
-          console.log("File upload time:", fileUploadTime);
-          console.log("Time difference (ms):", currentTime - fileUploadTime);
-          return currentTime - fileUploadTime > 5 * 60 * 1000; // Older than 5 minutes
-        }
-        return false;
-      });
-
-      console.log("Files to remove:", filesToRemove);
-
-      for (const file of filesToRemove) {
-        console.log(`Deleting file with ID: ${file.id}`);
-
-        try {
-          // Delete file from the server
-          const response = await fetch("http://localhost:8081/deleteFile", {
-            credentials: 'include',
-            method: "DELETE",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ id: file.id }),
-          });
-
-          const result = await response.json();
-          console.log("Response from server:", result);
-
-          if (!response.ok) {
-            if (response.status === 404) {
-              console.warn(`File with ID ${file.id} not found on the server. Skipping.`);
-            } else {
-              throw new Error(result.message || "Failed to delete file from database");
-            }
-          } else {
-            console.log(`File with ID ${file.id} deleted from database.`);
-          }
-
-          // Delete file from IndexedDB
-          await deleteFileFromIndexedDB(file.id);
-          console.log(`File with ID ${file.id} deleted from IndexedDB.`);
-        } catch (error) {
-          console.error(`Error deleting file with ID ${file.id}:`, error);
-        }
-      }
-
-      const remainingFiles = files.filter(file => !filesToRemove.includes(file));
-      setLocalFiles(remainingFiles);
-      setUploadedFiles(remainingFiles);
-      console.log("Remaining files:", remainingFiles);
-    } catch (error) {
-      console.error("Error cleaning up unmasked files:", error);
-    }
-  };
-
-
-  useEffect(() => {
-    let isCleaning = false; // Flag to track cleanup status
-
-    // Function to run cleanup at regular intervals
-    const runCleanup = async () => {
-      if (!isCleaning) {
-        isCleaning = true; // Mark cleanup as in progress
-        await cleanUpUnmaskedFiles();
-        isCleaning = false; // Mark cleanup as complete
-      }
-    };
-
-    // Set an interval for cleanup every 20 minutes
-    const cleanupInterval = setInterval(runCleanup, 20 * 60 * 1000);
-
-    // Initial call to start the cleanup process
-    runCleanup();
-
-    // Cleanup function to clear the interval when the component unmounts
-    return () => {
-      console.log("Cleanup interval cleared.");
-      clearInterval(cleanupInterval);
-    };
-  }, []);
 
   const handleFileUpload = async (event) => {
     const selectedFiles = Array.from(event.target.files);
@@ -172,7 +82,8 @@ const FileList = ({ uploadedFiles, setUploadedFiles, onTab, onDelete, newTab }) 
 
 
     try {
-      const response = await fetch("http://127.0.0.1:5000/detect_columns", {
+      const response = await fetch(apiUrl('/detect_columns'), {
+        credentials: 'include',
         method: "POST",
         body: formData,
       });
@@ -198,7 +109,7 @@ const FileList = ({ uploadedFiles, setUploadedFiles, onTab, onDelete, newTab }) 
               (column, index) => `
                 <tr>
                   <td style="border: 1px solid #ddd; padding: 3px;">${index + 1}</td>
-                  <td style="border: 1px solid #ddd; padding: 3px;">${column}</td>
+                  <td style="border: 1px solid #ddd; padding: 3px;">${escapeHtml(column)}</td>
                 </tr>
               `
             )
@@ -251,13 +162,12 @@ const FileList = ({ uploadedFiles, setUploadedFiles, onTab, onDelete, newTab }) 
         formData.append('key', password);
 
         try {
-          const response = await axios.post('http://localhost:8081/upload', formData, {
+          const response = await axios.post(apiUrl('/upload'), formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
             withCredentials: true,
           });
 
           const { fileId, fileName } = response.data;
-          console.log("column", columns);
 
 
           Swal.fire({
@@ -299,17 +209,14 @@ const FileList = ({ uploadedFiles, setUploadedFiles, onTab, onDelete, newTab }) 
 
 
   const handleViewFile = async (file) => {
-    console.log("Viewing file:", file);
     try {
       if (file.status === 'mask') {
         const updatedFile = await fetchFile(file.id);
-        console.log("Fetched masked file:", updatedFile);
 
         if (updatedFile?.content) {
           Papa.parse(updatedFile.content, {
             header: true,
             complete: (results) => {
-              console.log("Parsed data for file:", file.id, results.data);
               onTab(file.name, results.data, file.id, onMaskedUpdate, file.status, columns);
             },
           });
@@ -398,7 +305,6 @@ const FileList = ({ uploadedFiles, setUploadedFiles, onTab, onDelete, newTab }) 
 
   const onMaskedUpdate = async (fileId, maskedContent) => {
     try {
-      console.log(fileId);
       await updateFileWithMaskedContent(fileId, maskedContent);
       const updatedFiles = await getFilesFromIndexedDB();
       setLocalFiles(updatedFiles);
@@ -411,7 +317,7 @@ const FileList = ({ uploadedFiles, setUploadedFiles, onTab, onDelete, newTab }) 
   const handleDeleteCell = async (file) => {
     try {
       // Send a request to the backend to delete the file from the database
-      const response = await fetch("http://localhost:8081/deleteFile", {
+      const response = await fetch(apiUrl('/deleteFile'), {
         credentials: 'include',
         method: "DELETE",
         headers: {

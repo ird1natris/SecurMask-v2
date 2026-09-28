@@ -14,7 +14,6 @@ const FileDisplay = ({onLogout}) => {
 
     const location = useLocation();
     const fileData = location.state?.fileData || [];
-    console.log('FileData after navigate:', fileData); // Check if the fileData is printed in the console
 
     
 
@@ -32,7 +31,6 @@ const FileDisplay = ({onLogout}) => {
             link.download = 'file.csv'; // You can change the file name here
             link.click(); // Simulate a click on the link to start the download
         } else {
-            console.log("No data available to download");
         }
     };
 

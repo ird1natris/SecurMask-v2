@@ -1,0 +1,105 @@
+name: Verify Classifile
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: classifile
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PROCESSOR_SECRET: ci-processor-secret-at-least-32-characters
+      TEST_DATABASE_URL: postgresql://postgres:test@localhost:5432/classifile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            client/package-lock.json
+            server/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: server/requirements.txt
+      - run: npm ci
+        working-directory: server
+      - run: npm ci
+        working-directory: client
+      - run: pip install -r server/requirements.txt
+      - run: python -m unittest test_processor -v
+        working-directory: server
+      - name: Start real processor
+        run: |
+          cd server
+          gunicorn main_app:main_app --bind 127.0.0.1:5055 --workers 1 --threads 1 --timeout 120 > /tmp/processor.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:5055/health; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/processor.log
+          exit 1
+      - run: npm test
+        working-directory: server
+        env:
+          FLASK_TEST_URL: http://127.0.0.1:5055
+      - run: npm audit --omit=dev --audit-level=high
+        working-directory: server
+      - run: npm audit --audit-level=high
+        working-directory: client
+      - run: npm run build
+        working-directory: client
+      - name: Build production images
+        run: |
+          docker build -t classifile-web client
+          docker build -t classifile-api -f server/Dockerfile.api server
+          docker build -t classifile-processor -f server/Dockerfile.processor server
+      - name: Smoke test production containers and proxy
+        run: |
+          docker run --rm -e API_UPSTREAM=http://localhost:8081 classifile-web caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+          docker run -d --name processor --network host -e PROCESSOR_SECRET classifile-processor
+          docker run -d --name api --network host \
+            -e DATABASE_URL="$TEST_DATABASE_URL" -e PROCESSOR_SECRET \
+            -e FLASK_URL=http://localhost:5000 -e UPLOAD_DIR=/data/uploads \
+            -e SECRET_KEY=ci-session-secret-at-least-32-characters \
+            -e APP_ORIGIN=https://classifile.test -e RECAPTCHA_SECRET_KEY=ci-placeholder \
+            -e EMAIL_PROVIDER=resend -e RESEND_API_KEY=ci-placeholder \
+            -e EMAIL_FROM=hello@example.test \
+            -v classifile-uploads:/data/uploads classifile-api
+          docker run -d --name web --network host -e API_UPSTREAM=http://localhost:8081 classifile-web
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:3000/api/health && curl -fsS http://localhost:5000/health; then
+              curl -fsS http://localhost:3000/homepage | grep -q Classifile
+              test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/api/verifyToken)" = 401
+              docker restart api
+              for j in $(seq 1 30); do
+                if curl -fsS http://localhost:3000/api/health; then exit 0; fi
+                sleep 1
+              done
+              break
+            fi
+            sleep 1
+          done
+          docker logs api
+          docker logs web
+          docker logs processor
+          exit 1
+      - name: Container logs on failure
+        if: failure()
+        run: |
+          docker logs api || true
+          docker logs web || true
+          docker logs processor || true

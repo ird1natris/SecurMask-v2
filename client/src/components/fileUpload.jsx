@@ -1,3 +1,4 @@
+import { apiUrl, escapeHtml } from '../utils/api.js';
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import Papa from "papaparse";
@@ -24,7 +25,6 @@ const FileUpload = ({ uploadedFiles, setUploadedFiles }) => {
         const fetchFiles = async () => {
             try {
                 const files = await getFilesFromIndexedDB();
-                console.log("Fetched files:", files);
                 setLocalFiles(files); // Update the state to reflect the fetched files
             } catch (error) {
                 console.error("Error fetching files from IndexedDB:", error);
@@ -63,7 +63,6 @@ const FileUpload = ({ uploadedFiles, setUploadedFiles }) => {
         return new Promise((resolve, reject) => {
             Papa.parse(csvString, {
                 complete: (result) => {
-                    console.log('Parsed CSV:', result); // You can use the parsed data here
                     resolve(result.data); // Resolve with the parsed data
                 },
                 header: true, // Assuming the first row contains column headers
@@ -75,7 +74,7 @@ const FileUpload = ({ uploadedFiles, setUploadedFiles }) => {
     const unmaskFile = async (fileId) => {
 
         try {
-            const response = await axios.post("http://localhost:8081/file", {
+            const response = await axios.post(apiUrl('/file'), {
 
                 decryptionKey,
                 fileId,
@@ -162,7 +161,8 @@ const FileUpload = ({ uploadedFiles, setUploadedFiles }) => {
             }
         });
         try {
-            const response = await fetch("http://127.0.0.1:5000/detect_columns", {
+            const response = await fetch(apiUrl('/detect_columns'), {
+        credentials: 'include',
                 method: "POST",
                 body: formData,
             });
@@ -188,7 +188,7 @@ const FileUpload = ({ uploadedFiles, setUploadedFiles }) => {
                             (column, index) => `
                                     <tr>
                                         <td style="border: 1px solid #ddd; padding: 3px;">${index + 1}</td>
-                                        <td style="border: 1px solid #ddd; padding: 3px;">${column}</td>
+                                        <td style="border: 1px solid #ddd; padding: 3px;">${escapeHtml(column)}</td>
                                     </tr>
                                 `
                         )
@@ -244,13 +244,12 @@ const FileUpload = ({ uploadedFiles, setUploadedFiles }) => {
                 formData.append('key', password);
 
                 try {
-                    const response = await axios.post('http://localhost:8081/upload', formData, {
+                    const response = await axios.post(apiUrl('/upload'), formData, {
                         headers: { 'Content-Type': 'multipart/form-data' },
                         withCredentials: true,
                     });
 
                     const { fileId, fileName } = response.data;
-                    console.log("column", columns);
 
 
                     Swal.fire({
@@ -331,11 +330,8 @@ const FileUpload = ({ uploadedFiles, setUploadedFiles }) => {
                 }
 
 
-                console.log(`Extracted content for ${file.name}:`, fileContent);
-                console.log(`Extracted file ID for ${file.name}: ${fileId}`);
-                console.log(`Extracted signature for ${file.name}: ${extractedSignature}`);
 
-                const response = await fetch('http://localhost:8081/verify-signature', {
+                const response = await fetch(apiUrl('/verify-signature'), {
                     credentials: 'include',
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -345,7 +341,6 @@ const FileUpload = ({ uploadedFiles, setUploadedFiles }) => {
                 const result = await response.json();
 
                 if (response.ok && result.isValid) {
-                    console.log(`File ${file.name} passed verification.`);
                     setSelectedFileId(fileId);  // Store the file ID
                     setIsModalVisible(true);  // Show the modal to ask for decryption key
                 } else {

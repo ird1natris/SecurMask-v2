@@ -1,5 +1,5 @@
 {
-  "name": "server",
+  "name": "classifile-api",
   "version": "1.0.0",
   "main": "index.js",
   "type": "module",
@@ -16,7 +16,7 @@
   "description": "",
   "dependencies": {
     "axios": "^1.7.9",
-    "bcrypt": "^5.1.1",
+    "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "csv-parser": "^3.0.0",
@@ -26,8 +26,8 @@
     "form-data": "^4.0.1",
     "joi": "^17.13.3",
     "jsonwebtoken": "^9.0.2",
-    "multer": "^1.4.5-lts.1",
-    "nodemailer": "^6.9.15",
+    "multer": "^2.4.0",
+    "nodemailer": "^10.0.11",
     "nodemon": "^3.1.4",
     "pg": "^8.16.3",
     "uuid": "^11.0.3"
@@ -35,5 +35,8 @@
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
     "concurrently": "^9.1.0"
+  },
+  "engines": {
+    "node": ">=22 <25"
   }
 }

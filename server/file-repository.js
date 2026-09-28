@@ -48,8 +48,8 @@ export function createFileRepository(db, storage) {
                 written.push(key);
                 const fileId = randomUUID();
                 await client.query(
-                    'INSERT INTO user_files(file_id, user_id, file_name, file_path, iv) VALUES ($1, $2, $3, $4, $5)',
-                    [fileId, userId, name, key, iv]
+                    'INSERT INTO user_files(file_id, user_id, file_name, file_path, iv, content_format) VALUES ($1, $2, $3, $4, $5, $6)',
+                    [fileId, userId, name, key, iv, 'raw_csv']
                 );
                 return fileId;
             });

@@ -1,0 +1,9 @@
+node_modules
+uploads
+.env
+.env.*
+!.env.example
+.venv
+__pycache__
+test
+test_python

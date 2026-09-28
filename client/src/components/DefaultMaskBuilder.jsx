@@ -1,3 +1,4 @@
+import { apiUrl } from '../utils/api.js';
 import React, { useState, useEffect } from "react";
 import { CircleX } from "lucide-react";
 import { fetchFile } from "../utils/indexedDBUtils";
@@ -27,13 +28,11 @@ const DefaultMaskBuilder = ({ isOpen, onClose, fileId, onMaskedUpdate, HandleMas
 
                 // Assume fileData.content contains the columns array
                 const columns = fileData.columns || [];
-                console.log("Fetched columns:", columns);
                 if (!Array.isArray(columns)) {
                     throw new Error("Invalid column data in the file.");
                 }
 
                 setLocalColumns(columns); // State update
-                console.log("Set columns successfully"); // Log for debugging
                 setError(null);
             } catch (err) {
                 console.error("Error fetching columns from IndexedDB:", err);
@@ -80,11 +79,10 @@ const DefaultMaskBuilder = ({ isOpen, onClose, fileId, onMaskedUpdate, HandleMas
 
     const handleRunClick = async (decryptionKey) => {
         try {
-            console.log("Columns to mask:", columnsToMask);
 
             // Step 1: Fetch the file from IndexedDB
             
-            const response = await axios.post("http://localhost:8081/mask", {
+            const response = await axios.post(apiUrl('/mask'), {
                 fileId,
                 key: decryptionKey,
                 columnsToMask,

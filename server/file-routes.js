@@ -25,14 +25,15 @@ export function createProcessor(base = process.env.FLASK_URL || 'http://127.0.0.
     async function sendFile(endpoint, bytes, name) {
         const form = new FormData();
         form.append('file', bytes, { filename: name });
-        const { data } = await axios.post(base + endpoint, form, { headers: form.getHeaders(), timeout: 120000 });
+        const { data } = await axios.post(base + endpoint, form, { headers: { ...form.getHeaders(), 'X-Processor-Secret': process.env.PROCESSOR_SECRET || '' }, timeout: 120000, maxContentLength: 12 * 1024 * 1024, maxBodyLength: 12 * 1024 * 1024 });
         return data;
     }
     return {
+        detect: (bytes, name) => sendFile('/detect_columns', bytes, name),
         process: (bytes, name) => sendFile('/process_file', bytes, name),
         recover: bytes => sendFile('/deProcessFile', bytes, 'decrypted_file.csv'),
-        async mask(content, columnsToMask) {
-            const { data } = await axios.post(base + '/apply_masking_rules', { content, columnsToMask }, { timeout: 120000 });
+        async mask(content, columnsToMask, contentFormat) {
+            const { data } = await axios.post(base + '/apply_masking_rules', { content, columnsToMask, contentFormat }, { headers: { 'X-Processor-Secret': process.env.PROCESSOR_SECRET || '' }, timeout: 120000, maxContentLength: 12 * 1024 * 1024 });
             return data.maskedContent;
         },
     };
@@ -40,7 +41,7 @@ export function createProcessor(base = process.env.FLASK_URL || 'http://127.0.0.
 
 export function createFileRouter({ repository, authenticate, processor = createProcessor(), secret = process.env.SECRET_KEY, maxBytes = 10 * 1024 * 1024 }) {
     const router = express.Router();
-    const paths = ['/upload', '/mask', '/file', '/generate-signature', '/verify-signature', '/deleteFile'];
+    const paths = ['/detect_columns', '/upload', '/mask', '/file', '/generate-signature', '/verify-signature', '/deleteFile'];
     router.use(paths, authenticate, (req, res, next) => {
         if (!req.user?.user_id) return res.status(401).json({ message: 'User not authenticated' });
         next();
@@ -56,6 +57,10 @@ export function createFileRouter({ repository, authenticate, processor = createP
         },
     });
     const run = handler => (req, res, next) => Promise.resolve(handler(req, res)).catch(next);
+    router.post('/detect_columns', upload.single('file'), run(async (req, res) => {
+        if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+        res.json(await processor.detect(req.file.buffer, req.file.originalname));
+    }));
     router.post('/upload', upload.single('file'), run(async (req, res) => {
         if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
         requireKey(req.body.key);
@@ -73,7 +78,7 @@ export function createFileRouter({ repository, authenticate, processor = createP
         requireKey(req.body.key);
         const row = await repository.read(req.body.fileId, req.user.user_id);
         const content = decrypt(row.file_data, req.body.key, row.iv);
-        const masked = await processor.mask(content, req.body.columnsToMask);
+        const masked = await processor.mask(content, req.body.columnsToMask, row.content_format);
         if (typeof masked !== 'string') throw new Error('Processor returned invalid content');
         if (Buffer.byteLength(masked) > maxBytes) return res.status(413).json({ message: 'Processed file exceeds size limit' });
         await repository.saveMasked(row.file_id, req.user.user_id, Buffer.from(masked));
@@ -83,7 +88,7 @@ export function createFileRouter({ repository, authenticate, processor = createP
         requireKey(req.body.decryptionKey);
         const row = await repository.read(req.body.fileId, req.user.user_id);
         const content = decrypt(row.file_data, req.body.decryptionKey, row.iv);
-        const recovered = await processor.recover(Buffer.from(content));
+        const recovered = row.content_format === 'raw_csv' ? content : await processor.recover(Buffer.from(content));
         if (!recovered) throw new Error('Processor returned empty content');
         res.json({ content: recovered, message: 'Successfully unmasked the data' });
     }));
@@ -113,6 +118,9 @@ export function createFileRouter({ repository, authenticate, processor = createP
             return res.status(error.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({ message: 'Upload exceeds the allowed limits' });
         }
         if (error.status) return res.status(error.status).json({ message: error.message });
+        if (error.response && [400, 413, 422].includes(error.response.status)) {
+            return res.status(error.response.status).json({ message: 'The file could not be processed. Check its format and size.' });
+        }
         console.error('File operation failed:', error.code || error.name);
         res.status(500).json({ message: 'File operation failed. Please try again.' });
     });

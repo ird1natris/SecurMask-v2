@@ -1,14 +1,24 @@
-# Classifile
+# SecurMask
 
 **Share the data. Keep the details private.**
 
-Classifile is a CSV/XLSX privacy workbench. Upload a dataset, choose sensitive columns to mask, download the result, and recover the encrypted original with your file key.
+SecurMask is a student-developed CSV/XLSX privacy workbench. Upload a dataset, choose sensitive columns to mask, download the result, and recover the encrypted original with your file key.
 
-## Origin and attribution
+## Original work and subsequent contributions
 
-Classifile is a refactor of [SecurMask-v1](https://github.com/ird1natris/SecurMask-v1), originally authored by Irdina Batrisyia. The inherited Git history explains why GitHub lists the upstream author as a contributor; it does not imply involvement in this refactor or repository access. The original [MIT copyright notice](LICENSE) is preserved.
+SecurMask was originally developed by **Irdina Batrisyia**. The original student project is available at [SecurMask-v1](https://github.com/ird1natris/SecurMask-v1). This repository continues that work and preserves its original Git history and author attribution.
 
-The refactor is maintained in [itsFiz/Classifile](https://github.com/itsFiz/Classifile).
+Our subsequent contributions focus on **refactoring, maintenance and deployment support** for the existing student project. They include the database migration, authentication updates, persistent file storage, deployment infrastructure and verification described below. These contributions do not replace or reattribute the student's original work.
+
+### Temporary Classifile name
+
+During the refactoring and deployment work, the project was temporarily named **Classifile**. We have returned to **SecurMask** as the project identity to maintain continuity with the original student work. Historical Classifile commits remain as an accurate record of that development stage.
+
+The repository is currently hosted at [itsFiz/Classifile](https://github.com/itsFiz/Classifile). Some application labels, configuration examples and planning documents still use Classifile and await a separate branding update. This README update does not rename the GitHub repository or deployed application.
+
+### Attribution and license
+
+The original **Copyright (c) 2024 Irdina Batrisyia** notice and [MIT license](LICENSE) are preserved. Original and subsequent contributions remain traceable through Git history. The student appearing in GitHub's contributors list reflects authorship of the original code; it is not an accidental grant of repository access.
 
 ## Architecture
 
@@ -22,7 +32,7 @@ This is a monorepo with three deployable services:
 
 PostgreSQL is a fourth Railway service. Only the web service needs a public domain. The root and secure_mask package manifests are inherited artifacts, not additional deployed services.
 
-## Refactor changes
+## Refactoring and deployment contributions
 
 - PostgreSQL with numbered migrations applied automatically before API startup.
 - Persistent volume storage, owner checks, bounded uploads and retryable file cleanup.
@@ -31,19 +41,19 @@ PostgreSQL is a fourth Railway service. Only the web service needs a public doma
 - Resend HTTPS email delivery, with optional SMTP.
 - Private processor authentication, production Gunicorn startup and health endpoints.
 - CSV values preserved before encryption; older files retain their recovery path.
-- Account-specific browser caches, escaped column previews and Classifile branding.
+- Account-specific browser caches and escaped column previews.
 - No installed dependencies, secrets or uploaded datasets tracked in Git.
 
 ## Deploy on Railway
 
-Follow [RAILWAY.md](RAILWAY.md) for all four services, environment variables, volume setup, autodeploy and verification. Dockerfiles are included for each application service. Deployment still requires your Railway project, verified email sender.
+Follow [RAILWAY.md](RAILWAY.md) for all four services, environment variables, volume setup, autodeploy and verification. Dockerfiles are included for each application service. Deployment requires a Railway project and a verified email sender.
 
 ## Local development
 
 Use Node 22 or 24, Python 3.12, and PostgreSQL 17.
 
 1. Run `npm ci` in both `client/` and `server/`.
-2. Create a PostgreSQL database called `classifile`.
+2. Create a PostgreSQL database called `classifile` to match the current environment example; this technical identifier is retained from the temporary naming stage.
 3. Copy `server/.env.example` to `server/.env` and `client/.env.example` to `client/.env`. Configure email, database and two independent secrets.
 4. Create and activate a Python virtual environment in `server/.venv`; run `pip install -r requirements.txt` from `server/`.
 5. From `server/` run `npm start`. This starts Flask on 5000 and Node on 8081; migrations run automatically.
@@ -53,9 +63,9 @@ Use `npm run start:api` for Node alone. The Vite development proxy forwards /api
 
 ## Verification
 
-- `cd server && npm test` â€” passwordless authentication, migrations, volume storage and HTTP file flows.
-- `cd server && python -m unittest test_processor -v` â€” real CSV/XLSX preservation and processor access controls.
-- `cd client && npm run build` â€” frontend production build.
+- `cd server && npm test` - passwordless authentication, migrations, volume storage and HTTP file flows.
+- `cd server && python -m unittest test_processor -v` - real CSV/XLSX preservation and processor access controls.
+- `cd client && npm run build` - frontend production build.
 - Set `FLASK_TEST_URL` and matching `PROCESSOR_SECRET` when running Node tests to exercise the real processor.
 - Set `TEST_DATABASE_URL` to a disposable PostgreSQL database to enable the live PostgreSQL test. It uses and removes a dedicated test schema.
 

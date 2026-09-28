@@ -1,84 +1,74 @@
-# SecurMask: Fortifying Data Privacy With Intelligent Masking
+# Classifile
 
-**SecurMask** is a web application designed to securely mask sensitive data and unmask masked data in .csv and .xlsx files. With a sleek React frontend and a dual backend powered by both Node.js and Flask, the app ensures a seamless and secure data masking and unmasking experience.
+**Share the data. Keep the details private.**
 
-## Features
+Classifile is a privacy workbench for CSV and Excel datasets. Users can identify sensitive columns, apply masking rules, and recover encrypted original data using their key.
 
-- **Data Masking**: Encrypt sensitive data in specified columns of CSV or XLSX files.
-- **Data Unmasking**: Decrypt previously masked data to its original state.
-- **Secure Encryption**: Utilizes the `cryptography` library for robust data encryption.
-- Upload .csv and .xlsx files for secure processing.
-- Mask sensitive data such as birthdates, addresses, emails, credit card details, and more.
-- Customizable masking options: select specific columns or apply masking to all columns.
-- Fast and secure processing with PythonÃ¢â‚¬â„¢s Pandas and Node.js libraries.
-- Responsive and user-friendly UI.
-- Download the masked file securely.
+## Project origin and attribution
 
-## Technologies Used
+Classifile is a refactor of [SecurMask-v1](https://github.com/ird1natris/SecurMask-v1), originally authored by Irdina Batrisyia. This repository carries forward the original Git history, so GitHub may list the original author among its contributors. That reflects authorship of the upstream code; it does not by itself indicate involvement in the current Classifile refactor or repository access.
 
-**Frontend**
+The Classifile refactor is maintained in [itsFiz/Classifile](https://github.com/itsFiz/Classifile). The original MIT license and copyright notice are preserved in [LICENSE](LICENSE).
 
-- **React.js**: Dynamic user interface.
-- **SweetAlert2**: Elegant alert modals for user interactions.
-- **CSS**: Custom styling and animations.
-  
-**Backend**
+## What has changed
 
-- **Node.js**: For file handling, routing, and integration with React.
-- **Express.js**: API routing and server setup.
-- **Flask**: Python-based backend for advanced data masking and processing.
-- **Pandas**: Efficient data handling and transformation.
-- **Python Faker**: Generating fake data for sensitive fields.
+- Replaced MySQL with PostgreSQL and versioned SQL migrations.
+- Moved new file contents to filesystem storage suitable for a Railway persistent volume; PostgreSQL retains metadata.
+- Added authentication and ownership checks to file operations.
+- Added upload limits, transactional cleanup tracking, and a migration path for legacy database-stored files.
+- Added automatic schema and legacy-file migration before API startup.
+- Added database, storage, and HTTP file-flow integration tests.
 
-## Getting Started
+The user interface and some email templates still use the original SecurMask branding while the refactor is in progress.
 
-### Prerequisites
+## Application structure
 
-Ensure the following tools are installed:
+| Directory | Purpose |
+| --- | --- |
+| client/ | React and Vite frontend |
+| server/server.js | Express API, accounts and authentication |
+| server/file-routes.js | Authenticated file operations |
+| server/main_app.py | Flask masking and data processing |
+| server/migrations/ | PostgreSQL schema migrations |
+| server/test/ | Database and storage integration tests |
 
-- **Node.js 14.x or later** (for the frontend and Node.js backend)
-- **Python 3.8 or later** (for the Flask backend)
-- **pip** (Python package manager)
-- **npm**
+The secure_mask/ directory contains a legacy package manifest, not the active frontend.
 
-## Installation
+## Local development
 
-1. **Clone the Repository**
-   ```bash
-   git clone https://github.com/ird1natris/SecurMask-v1.git
-   cd SecurMask-v1
-   ```
-2. **Set Up the Backend**
-   
-   Navigate to the `backend` folder:
-   ```bash
-   cd server
-   ```
-   
-   Run the Flask backend:
-   ```bash
-   npm start  
-   ```
+Use a supported Node.js LTS release compatible with the dependencies, Python, and PostgreSQL.
 
-3. **Set Up the Frontend**
+1. Clone this repository.
+2. Run npm ci in client/ and server/ to install their locked dependencies.
+3. Create an empty PostgreSQL database and copy server/.env.example to server/.env.
+4. Configure the database connection, signing secret, email credentials and reCAPTCHA settings.
+5. Install Python dependencies from server/requirements.txt. The current requirements still need faker and fuzzywuzzy added; install those too for local processing.
+6. In server/, run npm start to launch the Node API and Flask development server. The API applies pending migrations automatically.
+7. In client/, run npm run dev.
 
-   Install the dependencies:
-   ```bash
-   npm install  
-   ```
+Use npm run start:api from server/ to start only the API. New schema changes belong in sequential SQL files such as 003_add_file_size.sql; already-applied migrations are skipped.
 
-   Start the React client server:
-   ```bash
-   npm run dev    
-   ```
+## File storage
 
-## Future Enhancements
+Development defaults to server/uploads/, which is ignored by Git. Production requires UPLOAD_DIR or a Railway volume mount variable. Original content is encrypted; masked output is stored as processed content. File access is restricted to its owner.
 
-- Expand support for other file formats (e.g., .json, .xml).
-- Incorporate machine learning for intelligent data masking patterns.
+See [PostgreSQL setup](server/POSTGRES.md) and [persistent storage setup](server/STORAGE.md) for environment variables, migration behavior and Railway mounting instructions.
 
-## PostgreSQL database
+## Verification
 
-The API now uses PostgreSQL. See [database setup and Railway instructions](server/POSTGRES.md) for connection variables, schema migration, and tests. From server/, npm run start:api automatically applies pending schema and legacy-file migrations before starting the API.
+- Run npm test in server/ for the database and file-storage tests.
+- Run npm run build in client/ for the frontend production build.
 
-Uploaded file contents use a persistent API volume. See [storage setup](server/STORAGE.md) for Railway mounting and migrating legacy database files.
+Tests use disposable filesystem storage and embedded PostgreSQL. HTTP file-flow tests stub the processor; they do not replace a live PostgreSQL, Flask and email smoke test.
+
+## Deployment status
+
+The refactor is not yet ready for a complete public Railway deployment. Remaining work includes replacing frontend localhost URLs, production routing and cookie configuration, an appropriate email-delivery integration, Python production dependencies, health endpoints, and the remaining authentication fixes identified during review.
+
+The intended deployment has a frontend, Node API, Flask processor and PostgreSQL service, with a dedicated upload volume attached to the API.
+
+## Repository hygiene
+
+Installed node_modules directories are not source files and must not be committed. Install dependencies with npm ci; keep package.json and package-lock.json tracked. Environment secrets and local uploads must remain outside Git.
+
+Previously committed dependencies have been removed from the current tree. They remain in historical commits because the upstream history is preserved.

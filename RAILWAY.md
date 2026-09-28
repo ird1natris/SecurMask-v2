@@ -18,7 +18,7 @@ Add a repository service named `processor`.
 
 | Setting | Value |
 | --- | --- |
-| Root directory | / (repository root; leave unset) |
+| Root directory | /server |
 | Builder | Dockerfile |
 | Start command | Empty; use image CMD |
 | Health check | /health |
@@ -28,7 +28,7 @@ Add a repository service named `processor`.
 Variables:
 
 ```dotenv
-RAILWAY_DOCKERFILE_PATH=server/Dockerfile.processor
+RAILWAY_DOCKERFILE_PATH=Dockerfile.processor
 NODE_ENV=production
 PORT=5000
 PYTHONUNBUFFERED=1
@@ -43,7 +43,7 @@ Add a repository service named `api`.
 
 | Setting | Value |
 | --- | --- |
-| Root directory | / (repository root; leave unset) |
+| Root directory | /server |
 | Builder | Dockerfile |
 | Start command | Empty; image runs npm run start:api |
 | Pre-deploy command | Empty; migrations run at startup |
@@ -58,7 +58,7 @@ Attach a **dedicated volume to api** at /data/uploads. PostgreSQL's volume does 
 Variables (Railway resolves the reference expressions):
 
 ```dotenv
-RAILWAY_DOCKERFILE_PATH=server/Dockerfile.api
+RAILWAY_DOCKERFILE_PATH=Dockerfile.api
 NODE_ENV=production
 PORT=8081
 HOST=::
@@ -126,24 +126,8 @@ Volumes exist at runtime, not during build/pre-deploy. Keep legacy file migratio
 
 The UI catalog is browser-local, separated by account. Cross-device browsing is not implemented. Clearing browser data removes its catalog and cached content, independently of server persistence.
 
-## Backend Docker build context
-
-Both backend Dockerfiles use the repository root as their build context and copy
-explicit server/ paths. On api and processor, clear any old /server Root Directory
-setting and set the full Dockerfile path shown above. Apply both changes together.
-Keep web rooted at /client.
-
-Equivalent local commands:
-
-    docker build -f server/Dockerfile.processor .
-    docker build -f server/Dockerfile.api .
-
-The root .dockerignore allows only backend source/manifests, excluding secrets,
-installed dependencies, uploads and client files. CI tests these exact contexts.
-
 ## Troubleshooting
 
-- **COPY file not found:** check the backend Root Directory is empty or / and the Dockerfile path is server/Dockerfile.processor or server/Dockerfile.api. Deploy the latest commit after applying settings changes.
 - **502 on /api:** verify API_UPSTREAM, service names, port 8081 and API logs.
 - **Unhealthy API:** verify database connection, volume mount, mail settings and migration logs.
 - **OTP delivery:** check Resend key, verified sender and provider logs. Codes expire after five minutes and resends have cooldowns.

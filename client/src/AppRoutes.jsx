@@ -1,6 +1,6 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { About, ContactUs, Home, Login, Registration, ForgotPassword, Data,FileDisplay,Setting } from './pages';
+import { About, ContactUs, Home, Login, Data,FileDisplay,Setting } from './pages';
 
 const AppRoutes = ({ authenticated, handleLoginSuccess, handleLogout }) => {
   return (
@@ -17,8 +17,8 @@ const AppRoutes = ({ authenticated, handleLoginSuccess, handleLogout }) => {
       ) : (
         <>
           <Route path="/" element={<Login onLoginSuccess={handleLoginSuccess} />} />
-          <Route path="/register" element={<Registration />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/register" element={<Navigate to="/" replace />} />
+          <Route path="/forgot-password" element={<Navigate to="/" replace />} />
         </>
       )}
       <Route path="*" element={<Navigate to={authenticated ? "/homepage" : "/"} replace />} />

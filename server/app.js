@@ -1,13 +1,12 @@
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import jwt from 'jsonwebtoken';
 import Joi from 'joi';
 import { createAuth, run } from './auth.js';
 import { createFileRepository } from './file-repository.js';
 import { createFileRouter, createProcessor } from './file-routes.js';
 
-export function createApp({ db, storage, config, sendMail, processor = createProcessor(), verifyCaptcha, limits = true }) {
+export function createApp({ db, storage, config, sendMail, processor = createProcessor(), limits = true }) {
     const app = express();
     app.disable('x-powered-by');
     // API is private, reached through one trusted web proxy which replaces X-Forwarded-For.
@@ -33,31 +32,6 @@ export function createApp({ db, storage, config, sendMail, processor = createPro
         res.json({ status: 'ok', service: 'classifile-api' });
     }));
     app.use(auth.router);
-    app.post('/verify-captcha', auth.authenticate, auth.limiter(20), run(async (req,res) => {
-        const value = req.body.captchaValue;
-        if (typeof value !== 'string' || value.length > 4096) return res.status(400).json({ success: false });
-        const valid = verifyCaptcha ? await verifyCaptcha(value) : await (async () => {
-            const response = await fetch('https://www.google.com/recaptcha/api/siteverify', {
-                method: 'POST',
-                body: new URLSearchParams({ secret: config.captchaSecret, response: value }),
-                signal: AbortSignal.timeout(10000),
-            });
-            if (!response.ok) return false;
-            const result = await response.json();
-            return result.success === true && result.hostname === new URL(config.origin).hostname;
-        })();
-        if (!valid) return res.status(400).json({ success: false });
-        const proof = jwt.sign({ purpose: 'captcha', user_id: req.user.user_id }, config.secret, { expiresIn: '2m', algorithm: 'HS256' });
-        res.cookie('captcha_pass',proof,{ ...auth.cookie, maxAge: 120000 }).json({ success: true });
-    }));
-    app.use(['/mask','/file'], auth.authenticate, (req,res,next) => {
-        try {
-            const proof = jwt.verify(req.cookies.captcha_pass,config.secret,{ algorithms:['HS256'] });
-            if (proof.purpose !== 'captcha' || proof.user_id !== req.user.user_id) throw new Error();
-            res.clearCookie('captcha_pass',auth.cookie);
-            next();
-        } catch { res.status(403).json({ message: 'Please complete the CAPTCHA again.' }); }
-    });
     app.use(['/upload','/detect_columns','/mask','/file','/generate-signature','/verify-signature'], auth.limiter(60));
     app.use(createFileRouter({ repository, authenticate: auth.authenticate, processor, secret: config.secret }));
     app.post('/send-feedback', auth.authenticate, auth.limiter(3), run(async (req,res) => {

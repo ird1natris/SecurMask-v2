@@ -10,7 +10,7 @@ import { createProcessor } from '../file-routes.js';
 import { migrate } from '../migrate.js';
 import { createMailer } from '../mail.js';
 
-test('authentication, OTP lifecycle, reset invalidation and origin enforcement', async t => {
+test('passwordless signup, login, code lifecycle and authenticated file access', async t => {
     const engine = new PGlite();
     const root = await mkdtemp(join(tmpdir(),'classifile-auth-'));
     const query = async (sql,params) => {
@@ -27,7 +27,7 @@ test('authentication, OTP lifecycle, reset invalidation and origin enforcement',
         process:async bytes=>bytes.toString(), detect:async()=>({columns:['name','code']}),
         mask:async()=> 'name,code\nXXXXXX,00123\n',
     };
-    const app=createApp({db,storage,config,processor,limits:false,sendMail:async m=>messages.push(m),verifyCaptcha:async v=>v==='valid'});
+    const app=createApp({db,storage,config,processor,limits:false,sendMail:async m=>messages.push(m)});
     const server=app.listen(0,'127.0.0.1');
     await new Promise(r=>server.once('listening',r));
     t.after(async()=>{await new Promise(r=>server.close(r));await engine.close();await rm(root,{recursive:true,force:true});});
@@ -45,30 +45,32 @@ test('authentication, OTP lifecycle, reset invalidation and origin enforcement',
         }
         return {status:res.status,data:await res.json(),headers:res.headers};
     }
-    const account={fullName:'Alice Test',email:'alice@example.test',password:'Password123!'};
+    const account={email:'alice@example.test'};
     const code=()=>messages.at(-1).text.match(/\b\d{6}\b/)[0];
     assert.equal((await req('/health')).status,200);
-    assert.equal((await req('/register',account,{headers:{Origin:'https://evil.test'}})).status,403);
-    assert.equal((await req('/register',account)).status,201);
-    assert.equal((await req('/register',{...account,email:'ALICE@example.test'})).status,400);
+    assert.equal((await req('/login',account,{headers:{Origin:'https://evil.test'}})).status,403);
+    assert.equal((await req('/login',{email:'invalid'})).status,400);
+    assert.equal((await req('/register',account)).status,404);
+    assert.equal((await req('/forgot-password',account)).status,404);
     assert.equal((await req('/verifyToken')).status,401);
-    assert.equal((await req('/resend-otp',{email:account.email})).status,401);
+    assert.equal((await req('/resend-otp',account)).status,401);
     const login=await req('/login',account);
     assert.equal(login.status,200);
+    assert.equal((await query('SELECT * FROM users')).rows.length,0);
     assert.match(login.headers.get('set-cookie'),/HttpOnly/);
     assert.match(login.headers.get('set-cookie'),/Secure/);
     assert.match(login.headers.get('set-cookie'),/SameSite=Strict/);
-    const challenge=jar.login_challenge, otp=code();
-    assert.equal((await req('/verify-otp-login',{email:account.email,otp},{cookies:false})).status,401);
-    assert.equal((await req('/resend-otp',{email:account.email})).status,429);
-    assert.equal((await req('/verify-otp-login',{email:account.email,otp})).status,200);
-    const oldSession=jar.token;
-    assert.equal((await req('/verifyToken')).status,200);
+    const challenge=jar.login_challenge,otp=code();
+    assert.notEqual((await query('SELECT otp FROM login_codes')).rows[0].otp,otp);
+    assert.equal((await req('/verify-otp-login',{...account,otp},{cookies:false})).status,401);
+    assert.equal((await req('/resend-otp',account)).status,429);
+    assert.equal((await req('/verify-otp-login',{...account,otp})).status,200);
+    const identity=(await req('/verifyToken')).data.decoded.user_id;
+    assert.equal((await query('SELECT password FROM users')).rows[0].password,null);
     jar.login_challenge=challenge;
-    assert.equal((await req('/verify-otp-login',{email:account.email,otp})).status,400);
-    assert.equal((await req('/resend-otp',{email:account.email})).status,401);
-    assert.equal((await req('/file',{fileId:'missing',decryptionKey:'password'})).status,403);
-    assert.equal((await req('/verify-captcha',{captchaValue:'invalid'})).status,400);
+    assert.equal((await req('/verify-otp-login',{...account,otp})).status,400);
+    assert.equal((await req('/resend-otp',account)).status,429);
+    assert.equal((await req('/file',{fileId:'missing',decryptionKey:'password'})).status,404);
 
     const form=()=>{const f=new FormData();f.append('file',new Blob(['name,code\nAlice,00123\n'],{type:'text/csv'}),'test.csv');f.append('key','strong-file-key');return f;};
     const detected=await req('/detect_columns',form());
@@ -77,34 +79,41 @@ test('authentication, OTP lifecycle, reset invalidation and origin enforcement',
     const uploaded=await req('/upload',form());
     assert.equal(uploaded.status,200);
     const fileId=uploaded.data.fileId;
-    assert.equal((await req('/verify-captcha',{captchaValue:'valid'})).status,200);
     const masked=await req('/mask',{fileId,key:'strong-file-key',columnsToMask:['name']});
     assert.equal(masked.status,200);
     assert.match(masked.data.content,/,00123/);
     assert.ok(!masked.data.content.includes('Alice'));
-    assert.equal((await req('/file',{fileId,decryptionKey:'strong-file-key'})).status,403);
-    await req('/verify-captcha',{captchaValue:'valid'});
+    assert.equal((await req('/file',{fileId,decryptionKey:'strong-file-key'},{cookies:false})).status,401);
+    assert.equal((await req('/mask',{fileId,key:'strong-file-key',columnsToMask:['name']},{cookies:false})).status,401);
     const recovered=await req('/file',{fileId,decryptionKey:'strong-file-key'});
     assert.equal(recovered.status,200);
     assert.equal(recovered.data.content,'name,code\nAlice,00123\n');
-
-    await req('/forgot-password',{email:account.email});
-    const resetCode=code();
-    await query("UPDATE password_resets SET expires_at = CURRENT_TIMESTAMP - INTERVAL '1 second'");
-    assert.equal((await req('/reset-password',{email:account.email,otp:resetCode,newPassword:'NewPassword123!'})).status,400);
-    await query("UPDATE password_resets SET created_at = CURRENT_TIMESTAMP - INTERVAL '2 minutes'");
-    await req('/forgot-password',{email:account.email});
-    const nextCode=code();
-    assert.equal((await req('/reset-password',{email:account.email,otp:nextCode,newPassword:'NewPassword123!'})).status,200);
-    jar.token=oldSession;
+    await req('/logout',{});
     assert.equal((await req('/verifyToken')).status,401);
-    assert.equal((await req('/reset-password',{email:account.email,otp:nextCode,newPassword:'AnotherPassword123!'})).status,400);
 
-    await req('/login',{email:account.email,password:'NewPassword123!'});
-    const validOtp=code(), wrong=validOtp==='123456'?'654321':'123456';
-    for(let i=0;i<5;i++)assert.equal((await req('/verify-otp-login',{email:account.email,otp:wrong})).status,400);
-    assert.equal((await req('/verify-otp-login',{email:account.email,otp:validOtp})).status,400);
-    assert.equal((await query('SELECT attempts FROM mfa_otps')).rows[0].attempts,5);
+    // Existing accounts sign in without a password and retain ownership.
+    await query('UPDATE users SET password=$1',['legacy-password-hash']);
+    await req('/login',{email:'ALICE@example.test'});
+    const oldCode=code(),oldChallenge=jar.login_challenge;
+    await query("UPDATE login_codes SET expires_at=CURRENT_TIMESTAMP-INTERVAL '1 second'");
+    assert.equal((await req('/verify-otp-login',{...account,otp:oldCode})).status,400);
+    await query("UPDATE login_codes SET created_at=CURRENT_TIMESTAMP-INTERVAL '2 minutes'");
+    assert.equal((await req('/resend-otp',account)).status,200);
+    const newCode=code(),newChallenge=jar.login_challenge;
+    jar.login_challenge=oldChallenge;
+    assert.equal((await req('/verify-otp-login',{...account,otp:oldCode})).status,400);
+    jar.login_challenge=newChallenge;
+    assert.equal((await req('/verify-otp-login',{...account,otp:newCode})).status,200);
+    assert.equal((await req('/verifyToken')).data.decoded.user_id,identity);
+    assert.equal((await query('SELECT * FROM users')).rows.length,1);
+    assert.equal((await req('/file',{fileId,decryptionKey:'strong-file-key'})).status,200);
+
+    await req('/login',account);
+    const validOtp=code(),wrong=validOtp==='123456'?'654321':'123456';
+    for(let i=0;i<5;i++)assert.equal((await req('/verify-otp-login',{...account,otp:wrong})).status,400);
+    assert.equal((await req('/verify-otp-login',{...account,otp:validOtp})).status,400);
+    assert.equal((await query('SELECT attempts FROM login_codes')).rows[0].attempts,5);
+
 });
 
 test('Resend adapter uses HTTPS and never returns provider secrets on failure',async()=>{

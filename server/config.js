@@ -8,7 +8,6 @@ export function loadConfig(env = process.env) {
     if (production && (!env.FLASK_URL || !env.PROCESSOR_SECRET || env.PROCESSOR_SECRET.length < 32)) {
         throw new Error('Set FLASK_URL and a PROCESSOR_SECRET of at least 32 characters');
     }
-    if (!env.RECAPTCHA_SECRET_KEY) throw new Error('RECAPTCHA_SECRET_KEY is required');
-    return { production, secret, origin, captchaSecret: env.RECAPTCHA_SECRET_KEY,
+    return { production, secret, origin,
         port: Number(env.PORT || 8081), host: env.HOST || '::' };
 }

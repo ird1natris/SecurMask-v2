@@ -75,7 +75,7 @@ jobs:
             -e DATABASE_URL="$TEST_DATABASE_URL" -e PROCESSOR_SECRET \
             -e FLASK_URL=http://localhost:5000 -e UPLOAD_DIR=/data/uploads \
             -e SECRET_KEY=ci-session-secret-at-least-32-characters \
-            -e APP_ORIGIN=https://classifile.test -e RECAPTCHA_SECRET_KEY=ci-placeholder \
+            -e APP_ORIGIN=https://classifile.test \
             -e EMAIL_PROVIDER=resend -e RESEND_API_KEY=ci-placeholder \
             -e EMAIL_FROM=hello@example.test \
             -v classifile-uploads:/data/uploads classifile-api

@@ -27,7 +27,7 @@ PostgreSQL is a fourth Railway service. Only the web service needs a public doma
 - PostgreSQL with numbered migrations applied automatically before API startup.
 - Persistent volume storage, owner checks, bounded uploads and retryable file cleanup.
 - Same-origin API routing, production cookies, request-origin validation and rate limits.
-- Password-bound login challenges, expiring single-use login/reset codes, attempt limits, and session invalidation after a password reset.
+- Passwordless email sign-in with expiring single-use codes, attempt limits and resend cooldowns. New accounts are created only after code verification.
 - Resend HTTPS email delivery, with optional SMTP.
 - Private processor authentication, production Gunicorn startup and health endpoints.
 - CSV values preserved before encryption; older files retain their recovery path.
@@ -36,7 +36,7 @@ PostgreSQL is a fourth Railway service. Only the web service needs a public doma
 
 ## Deploy on Railway
 
-Follow [RAILWAY.md](RAILWAY.md) for all four services, environment variables, volume setup, autodeploy and verification. Dockerfiles are included for each application service. Deployment still requires your Railway project, verified email sender and reCAPTCHA credentials.
+Follow [RAILWAY.md](RAILWAY.md) for all four services, environment variables, volume setup, autodeploy and verification. Dockerfiles are included for each application service. Deployment still requires your Railway project, verified email sender.
 
 ## Local development
 
@@ -44,16 +44,16 @@ Use Node 22 or 24, Python 3.12, and PostgreSQL 17.
 
 1. Run `npm ci` in both `client/` and `server/`.
 2. Create a PostgreSQL database called `classifile`.
-3. Copy `server/.env.example` to `server/.env` and `client/.env.example` to `client/.env`. Configure email, reCAPTCHA, database and two independent secrets.
+3. Copy `server/.env.example` to `server/.env` and `client/.env.example` to `client/.env`. Configure email, database and two independent secrets.
 4. Create and activate a Python virtual environment in `server/.venv`; run `pip install -r requirements.txt` from `server/`.
 5. From `server/` run `npm start`. This starts Flask on 5000 and Node on 8081; migrations run automatically.
 6. From `client/` run `npm run dev` and use `http://localhost:5173`.
 
-Use `npm run start:api` for Node alone. The Vite development proxy forwards /api requests. Register localhost in your reCAPTCHA v2 checkbox configuration.
+Use `npm run start:api` for Node alone. The Vite development proxy forwards /api requests.
 
 ## Verification
 
-- `cd server && npm test` â€” authentication, migrations, volume storage and HTTP file flows.
+- `cd server && npm test` â€” passwordless authentication, migrations, volume storage and HTTP file flows.
 - `cd server && python -m unittest test_processor -v` â€” real CSV/XLSX preservation and processor access controls.
 - `cd client && npm run build` â€” frontend production build.
 - Set `FLASK_TEST_URL` and matching `PROCESSOR_SECRET` when running Node tests to exercise the real processor.

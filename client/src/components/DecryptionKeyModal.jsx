@@ -1,13 +1,9 @@
-import { apiUrl } from '../utils/api.js';
 import React, { useState } from "react";
-import ReCAPTCHA from "react-google-recaptcha";
 import { Eye, EyeOff } from "lucide-react"; // Import icons from Lucide React
 
 const DecryptionKeyModal = ({ isOpen, onSubmit, onClose }) => {
     const [decryptionKey, setDecryptionKey] = useState("");
     const [keyError, setKeyError] = useState("");
-    const [captchaValue, setCaptchaValue] = useState(null); // Store the captcha response
-    const [captchaError, setCaptchaError] = useState(""); // Store error related to captcha
     const [showPassword, setShowPassword] = useState(false); // Toggle for password visibility
 
     const handleSubmit = async () => {
@@ -16,42 +12,8 @@ const DecryptionKeyModal = ({ isOpen, onSubmit, onClose }) => {
             return;
         }
 
-        if (!captchaValue) {
-            setCaptchaError("Please complete the CAPTCHA.");
-            return;
-        }
-
-        try {
-            const response = await fetch(apiUrl('/verify-captcha'), {
-                credentials: "include",
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    captchaValue, // Send the captcha token
-                }),
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
-                // CAPTCHA verification successful
-                onSubmit(decryptionKey);
-                setDecryptionKey("");
-                setCaptchaValue(null);
-            } else {
-                setCaptchaError("CAPTCHA verification failed.");
-            }
-        } catch (error) {
-            console.error("Error verifying CAPTCHA:", error);
-            setCaptchaError("An error occurred during CAPTCHA verification.");
-        }
-    };
-
-    const handleCaptchaChange = (value) => {
-        setCaptchaValue(value);
-        setCaptchaError(""); // Clear error once user interacts with CAPTCHA
+        await onSubmit(decryptionKey);
+        setDecryptionKey("");
     };
 
     if (!isOpen) return null;
@@ -80,16 +42,6 @@ const DecryptionKeyModal = ({ isOpen, onSubmit, onClose }) => {
                     </button>
                 </div>
                 {keyError && <p className="text-red-500 text-sm mb-2">{keyError}</p>}
-
-                {/* CAPTCHA */}
-                <div className="my-4">
-                    {import.meta.env.VITE_RECAPTCHA_SITE_KEY ? <ReCAPTCHA
-                        sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY || ""}
-                        onChange={handleCaptchaChange}
-                        onExpired={() => setCaptchaValue(null)}
-                    /> : <p className="text-red-500">Verification is unavailable. Please contact the administrator.</p>}
-                    {captchaError && <p className="text-red-500 text-sm mt-2">{captchaError}</p>}
-                </div>
 
                 <div className="flex justify-end space-x-2">
                     <button

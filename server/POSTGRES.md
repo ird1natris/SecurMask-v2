@@ -9,7 +9,9 @@ Only Node connects to PostgreSQL, using pg. MySQL dumps informed the schema; no 
 - 003_auth_sessions.sql adds session versions, challenges and attempt counts. Pending old OTP/reset codes are deliberately cleared; users request new ones.
 - 004_content_format.sql identifies old legacy-cipher files. New uploads explicitly use raw_csv to preserve values.
 
-Add future changes as 005_description.sql. Never edit a deployed migration. Code rollback does not reverse schema changes.
+- 005_passwordless_login.sql adds email sign-in challenges and allows accounts without passwords. Existing user IDs and file ownership are retained; old pending password/MFA codes are cleared.
+
+Add future changes as 006_description.sql. Never edit a deployed migration. Code rollback does not reverse schema changes.
 
 Identifiers are UUIDs, timestamps are timestamptz, database sessions use UTC and email uniqueness is case-insensitive. The quoted fullName column preserves its spelling. The inherited daily limit counts currently retained uploads per user; deleting an upload releases a slot.
 

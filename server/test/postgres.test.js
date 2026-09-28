@@ -12,7 +12,7 @@ test('migrations rerun without losing records and invalid DDL rolls back', async
     await engine.query('INSERT INTO users(user_id,"fullName",email,password) VALUES ($1,$2,$3,$4)', [randomUUID(),'Alice','Alice@example.test','hash']);
     await migrate(client);
     assert.equal((await engine.query('SELECT * FROM users')).rows.length,1);
-    assert.equal((await engine.query('SELECT * FROM schema_migrations')).rows.length,4);
+    assert.equal((await engine.query('SELECT * FROM schema_migrations')).rows.length,5);
     await assert.rejects(engine.query('INSERT INTO users(user_id,"fullName",email,password) VALUES ($1,$2,$3,$4)', [randomUUID(),'Alice','alice@example.test','hash']),{code:'23505'});
     const broken = new PGlite();
     t.after(() => broken.close());

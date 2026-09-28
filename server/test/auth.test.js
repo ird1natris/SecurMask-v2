@@ -9,6 +9,7 @@ import { createStorage } from '../storage.js';
 import { createProcessor } from '../file-routes.js';
 import { migrate } from '../migrate.js';
 import { createMailer } from '../mail.js';
+import { createLoginEmail } from '../login-email.js';
 
 test('passwordless signup, login, code lifecycle and authenticated file access', async t => {
     const engine = new PGlite();
@@ -61,6 +62,8 @@ test('passwordless signup, login, code lifecycle and authenticated file access',
     assert.match(login.headers.get('set-cookie'),/Secure/);
     assert.match(login.headers.get('set-cookie'),/SameSite=Strict/);
     const challenge=jar.login_challenge,otp=code();
+    assert.ok(messages.at(-1).html.includes(otp));
+    assert.ok(messages.at(-1).html.includes(config.origin + "/email/securmask-logo.png"));
     assert.notEqual((await query('SELECT otp FROM login_codes')).rows[0].otp,otp);
     assert.equal((await req('/verify-otp-login',{...account,otp},{cookies:false})).status,401);
     assert.equal((await req('/resend-otp',account)).status,429);
@@ -120,9 +123,25 @@ test('Resend adapter uses HTTPS and never returns provider secrets on failure',a
     let call;
     const env={NODE_ENV:'production',EMAIL_PROVIDER:'resend',EMAIL_FROM:'SecurMask <hello@example.test>',RESEND_API_KEY:'test-key'};
     const mail=createMailer(env,async(url,init)=>{call={url,init};return {ok:true};});
-    await mail({to:'alice@example.test',subject:'Test',text:'code'});
+    await mail({to:'alice@example.test',subject:'Test',text:'code',html:'<p>code</p>'});
     assert.equal(call.url,'https://api.resend.com/emails');
     assert.deepEqual(JSON.parse(call.init.body).to,['alice@example.test']);
+    assert.equal(JSON.parse(call.init.body).html,'<p>code</p>');
+    assert.equal(JSON.parse(call.init.body).text,'code');
+    await mail({to:'alice@example.test',subject:'Feedback',text:'Text only'});
+    assert.equal(JSON.parse(call.init.body).html,undefined);
     const bad=createMailer(env,async()=>({ok:false,status:403}));
     await assert.rejects(bad({to:'alice@example.test',subject:'test',text:'code'}),/403/);
+});
+
+
+test('sign-in email keeps the code in its body and rejects unsafe template input',()=>{
+    const message=createLoginEmail({code:'123456',origin:'https://securmask.test/path'});
+    assert.match(message.text,/123456/);
+    assert.match(message.html,/>123456<\/p>/);
+    assert.ok(!message.subject.includes('123456'));
+    assert.ok(!message.html.match(/(?:src|href)="[^"]*123456/));
+    assert.match(message.html,/https:\/\/securmask.test\/email\/securmask-logo.png/);
+    assert.throws(()=>createLoginEmail({code:'<img>',origin:'https://securmask.test'}),/Invalid sign-in code/);
+    assert.throws(()=>createLoginEmail({code:'123456',origin:'javascript:alert(1)'}),/Invalid app origin/);
 });

@@ -5,11 +5,11 @@ export function createMailer(env = process.env, request = fetch) {
     if (!from) throw new Error('EMAIL_FROM is required');
     if (provider === 'resend') {
         if (!env.RESEND_API_KEY) throw new Error('RESEND_API_KEY is required');
-        return async ({ to, subject, text }) => {
+        return async ({ to, subject, text, html }) => {
             const response = await request('https://api.resend.com/emails', {
                 method: 'POST',
                 headers: { Authorization: 'Bearer ' + env.RESEND_API_KEY, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ from, to: [to], subject, text }),
+                body: JSON.stringify({ from, to: [to], subject, text, html }),
                 signal: AbortSignal.timeout(15000),
             });
             if (!response.ok) throw new Error('Email delivery failed (' + response.status + ')');
@@ -22,5 +22,5 @@ export function createMailer(env = process.env, request = fetch) {
         auth: { user: env.EMAIL_USER, pass: env.EMAIL_PASS },
         connectionTimeout: 15000, socketTimeout: 20000,
     });
-    return ({ to, subject, text }) => transport.sendMail({ from, to, subject, text });
+    return ({ to, subject, text, html }) => transport.sendMail({ from, to, subject, text, html });
 }

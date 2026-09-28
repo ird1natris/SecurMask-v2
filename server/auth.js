@@ -1,3 +1,4 @@
+import { createLoginEmail } from './login-email.js';
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import { createHmac, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
@@ -56,8 +57,7 @@ export function createAuth({db,config,sendMail,limits=true}) {
         );
         if(!result.rows.length)throw fail(resend?'Please wait a minute or request a new login code.':'Please wait a minute before requesting another code.',429);
         try{
-            await sendMail({to:email,subject:'Your SecurMask sign-in code',
-                text:'Your SecurMask sign-in code is '+code+'. It expires in 5 minutes. Do not share it. If you did not request this, ignore this email.'});
+            await sendMail({to:email,...createLoginEmail({code,origin:config.origin})});
         }catch{
             await db.query('DELETE FROM login_codes WHERE email=$1 AND challenge_id=$2',[email,challengeId]);
             throw fail('Unable to send your sign-in code. Please try again.',503);

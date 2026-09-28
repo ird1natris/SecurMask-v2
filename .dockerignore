@@ -1,0 +1,13 @@
+# Backend images use the repository root as build context.
+# Include only the source and manifests required by the API and processor.
+**
+!server/
+!server/*.js
+!server/package.json
+!server/package-lock.json
+!server/main_app.py
+!server/requirements.txt
+!server/Dockerfile.api
+!server/Dockerfile.processor
+!server/migrations/
+!server/migrations/*.sql

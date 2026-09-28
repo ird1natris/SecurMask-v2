@@ -65,8 +65,8 @@ jobs:
       - name: Build production images
         run: |
           docker build -t classifile-web client
-          docker build -t classifile-api -f server/Dockerfile.api server
-          docker build -t classifile-processor -f server/Dockerfile.processor server
+          docker build -t classifile-api -f server/Dockerfile.api .
+          docker build -t classifile-processor -f server/Dockerfile.processor .
       - name: Smoke test production containers and proxy
         run: |
           docker run --rm -e API_UPSTREAM=http://localhost:8081 classifile-web caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile

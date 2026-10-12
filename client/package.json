@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/ibm-plex-sans": "^5.3.0",
     "axios": "^1.7.7",
     "chart.js": "^4.4.7",
     "crypto-js": "^4.2.0",
@@ -17,6 +19,7 @@
     "exceljs": "^4.4.0",
     "lucide-react": "^0.435.0",
     "papaparse": "^5.4.1",
+    "prop-types": "^15.8.1",
     "react": "^18.3.1",
     "react-chartjs-2": "^5.2.0",
     "react-data-table-component": "^7.6.2",
@@ -30,6 +33,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.9.0",
+    "@playwright/test": "^1.64.0",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.7.0",
@@ -40,8 +44,10 @@
     "eslint-plugin-react-refresh": "^0.4.9",
     "globals": "^15.9.0",
     "postcss": "^8.4.49",
+    "prettier": "^3.9.10",
     "tailwindcss": "^3.4.17",
-    "vite": "^6.4.3"
+    "vite": "^6.4.3",
+    "vite-plugin-pwa": "^2.0.0"
   },
   "overrides": {
     "exceljs": {

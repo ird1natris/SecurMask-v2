@@ -237,3 +237,16 @@ export const fetchFileStatus = async (fileId) => {
     throw error;
   }
 };
+
+// Legacy dataset content is not used by the server-backed library.
+export async function clearCachedFiles() {
+    const db = await openIndexedDB();
+    await new Promise((resolve, reject) => {
+        const tx = db.transaction('files', 'readwrite');
+        tx.objectStore('files').clear();
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+    sessionStorage.clear();
+}

@@ -41,7 +41,7 @@ export function createProcessor(base = process.env.FLASK_URL || 'http://127.0.0.
 
 export function createFileRouter({ repository, authenticate, processor = createProcessor(), secret = process.env.SECRET_KEY, maxBytes = 10 * 1024 * 1024 }) {
     const router = express.Router();
-    const paths = ['/detect_columns', '/upload', '/mask', '/file', '/generate-signature', '/verify-signature', '/deleteFile'];
+    const paths = ['/files', '/masked-file', '/detect_columns', '/upload', '/mask', '/file', '/generate-signature', '/verify-signature', '/deleteFile'];
     router.use(paths, authenticate, (req, res, next) => {
         if (!req.user?.user_id) return res.status(401).json({ message: 'User not authenticated' });
         next();
@@ -57,6 +57,8 @@ export function createFileRouter({ repository, authenticate, processor = createP
         },
     });
     const run = handler => (req, res, next) => Promise.resolve(handler(req, res)).catch(next);
+    router.get('/files', run(async (req, res) => res.json({ files: await repository.list(req.user.user_id) })));
+    router.get('/masked-file', run(async (req, res) => res.json({ content: await repository.masked(req.query.id, req.user.user_id) })));
     router.post('/detect_columns', upload.single('file'), run(async (req, res) => {
         if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
         res.json(await processor.detect(req.file.buffer, req.file.originalname));

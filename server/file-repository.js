@@ -35,6 +35,22 @@ export function createFileRepository(db, storage) {
         if (key) await client.query('INSERT INTO file_cleanup(path) VALUES ($1) ON CONFLICT DO NOTHING', [key]);
     }
     const repository = {
+        async list(userId) {
+            if (!validId(userId)) throw notFound();
+            const { rows } = await db.query(
+                `SELECT file_id AS id, file_name AS name, created_at AS "uploadedAt",
+                 CASE WHEN masked_path IS NOT NULL OR masked_data IS NOT NULL THEN 'mask' ELSE 'unmask' END AS status
+                 FROM user_files WHERE user_id = $1 ORDER BY created_at DESC`, [userId]);
+            return rows;
+        },
+        async masked(fileId, userId) {
+            return transaction(async client => {
+                const row = await owned(client, fileId, userId, true);
+                const bytes = row.masked_path ? await storage.read(row.masked_path) : row.masked_data;
+                if (bytes == null) throw notFound();
+                return Buffer.from(bytes).toString('utf8');
+            });
+        },
         async create(userId, name, data, iv) {
             return transaction(async (client, written) => {
                 const owner = await client.query('SELECT user_id FROM users WHERE user_id = $1 FOR UPDATE', [userId]);

@@ -5,8 +5,8 @@ export default function About() {
     <Workspace title="About SecurMask">
       <div className="page-heading">
         <div>
-          <p className="eyebrow">BUILT FOR THOUGHTFUL SHARING</p>
-          <h1>Useful data. Fewer personal details.</h1>
+          <p className="eyebrow">ABOUT</p>
+          <h1>About SecurMask</h1>
           <p>A simple privacy workbench for your CSV and Excel datasets.</p>
         </div>
       </div>

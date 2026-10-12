@@ -100,10 +100,8 @@ export default function Data() {
     <Workspace title="Files">
       <div className="page-heading">
         <div>
-          <p className="eyebrow">A PLACE FOR YOUR WORK</p>
-          <h1>
-            Your files, <span>in order.</span>
-          </h1>
+          <p className="eyebrow">FILES</p>
+          <h1>File library</h1>
           <p>Pick up where you left off. Your library follows your account.</p>
         </div>
         <Link className="button" to="/homepage">

@@ -12,9 +12,7 @@ export function Brand() {
   return (
     <Link to="/homepage" className="brand" aria-label="SecurMask workspace">
       <ScanLine size={25} strokeWidth={1.8} />
-      <span>
-        SecurMask<span className="brand-period">.</span>
-      </span>
+      <span>SecurMask</span>
     </Link>
   );
 }
@@ -27,7 +25,8 @@ export default function Workspace({ children, title }) {
       <header className="workspace-header">
         <Brand />
         <span className="header-context">
-          THE PRIVACY WORKSPACE <span>/</span> {title}
+          <span className="workspace-indicator" /> Personal workspace{" "}
+          <span>/</span> {title}
         </span>
         <Link to="/about-us" className="header-help">
           How it works <ArrowUpRight size={14} />
@@ -36,7 +35,7 @@ export default function Workspace({ children, title }) {
       <main id="main-content" className="workspace-main">
         {children}
         <footer className="workspace-footer">
-          <span>SecurMask — share thoughtfully.</span>
+          <span>SecurMask</span>
           <Link to="/contact">
             Help & feedback <ArrowUpRight size={13} />
           </Link>

@@ -4,7 +4,7 @@ Verified locally on 12 October 2026. Implementation lives on `revamp/uiux`; `arc
 
 ## Implemented
 
-- Warm light theme, local IBM Plex fonts, neutral surfaces, no gradients, responsive labeled dock.
+- White/charcoal light theme with a restrained rust accent, local IBM Plex fonts, neutral surfaces, no gradients, and a responsive labeled dock. The revised workspace uses a compact import panel, file inspector, and actual recent-file records; promotional slogans and illustrative datasets have been removed.
 - Email-code login, one-file upload, encrypted original, column selection, original/masked previews, signed CSV export, recovery, server-backed searchable/filterable library, profile, feedback, and help.
 - Draft selections remain in memory across dock navigation. Reload warns before losing a task. File keys are not persisted; keys are cleared after successful use. Server encryption and signed-export formats are unchanged.
 - The key input now accepts the API's existing minimum of eight characters rather than the old UI's arbitrary exact-eight-character restriction.

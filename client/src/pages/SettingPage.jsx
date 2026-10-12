@@ -57,7 +57,7 @@ export default function Settings({ onLogout }) {
     <Workspace title="Settings" onLogout={onLogout}>
       <div className="page-heading">
         <div>
-          <p className="eyebrow">MAKE YOURSELF AT HOME</p>
+          <p className="eyebrow">ACCOUNT</p>
           <h1>Settings</h1>
           <p>Manage your local profile and understand your account security.</p>
         </div>

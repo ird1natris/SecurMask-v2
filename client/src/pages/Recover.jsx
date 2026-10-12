@@ -48,10 +48,8 @@ export default function Recover() {
     <Workspace title="Recover">
       <div className="page-heading">
         <div>
-          <p className="eyebrow">BACK TO THE ORIGINAL</p>
-          <h1>
-            The details, <span>when you need them.</span>
-          </h1>
+          <p className="eyebrow">RECOVER</p>
+          <h1>Recover original data</h1>
           <p>
             Recover your original dataset with its signed export and your file
             key.

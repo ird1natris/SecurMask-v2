@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   Upload,
@@ -10,19 +10,21 @@ import {
   X,
   Download,
   Columns3,
-  ShieldCheck,
+  FolderOpen,
 } from "lucide-react";
 import Workspace from "../components/Workspace";
 import DataPreview from "../components/DataPreview";
 import { useTask } from "../utils/taskContext";
 import { request, parse, validUpload, exportMasked } from "../utils/workbench";
-const example = [
-  { name: "Amira Hassan", email: "amira@example.com", department: "Research" },
-  { name: "Daniel Tan", email: "daniel@example.com", department: "Finance" },
-  { name: "Sofia Lim", email: "sofia@example.com", department: "Operations" },
-];
 export default function Home() {
   const { task, setTask } = useTask();
+  const [recent, setRecent] = useState([]);
+  const [libraryError, setLibraryError] = useState(false);
+  useEffect(() => {
+    request("/files")
+      .then(({ files }) => setRecent(files.slice(0, 3)))
+      .catch(() => setLibraryError(true));
+  }, [task?.id, task?.masked]);
   const input = useRef(null);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -140,40 +142,48 @@ export default function Home() {
   const activeStage = task?.needsPreview ? 1 : stage;
   return (
     <Workspace title="Workspace">
-      <div className="page-heading">
+      <div className="page-heading workspace-title">
         <div>
-          <p className="eyebrow">A LITTLE LESS EXPOSED</p>
-          <h1>
-            Your data. <span>Your discretion.</span>
-          </h1>
-          <p>Mask the personal details. Keep what makes your data useful.</p>
+          <p className="eyebrow">WORKSPACE</p>
+          <h1>Data masking</h1>
+          <p>
+            Remove sensitive details from a spreadsheet before you share it.
+          </p>
         </div>
-        <span className="edition">WORKSPACE / 01</span>
+        <Link className="text-link" to="/folder">
+          Open file library <ArrowUpRight size={15} />
+        </Link>
       </div>
-      <div className="stepper" aria-label="Masking progress">
-        {[
-          "Choose a file",
-          "Protect original",
-          "Select columns",
-          "Review & export",
-        ].map((label, i) => (
-          <div
-            key={label}
-            className={
-              activeStage === i ? "current" : activeStage > i ? "complete" : ""
-            }
-          >
-            <span>
-              {activeStage > i ? (
-                <Check size={13} />
-              ) : (
-                String(i + 1).padStart(2, "0")
-              )}
-            </span>
-            {label}
-          </div>
-        ))}
-      </div>
+      {task && (
+        <div className="stepper" aria-label="Masking progress">
+          {[
+            "Choose a file",
+            "Protect original",
+            "Select columns",
+            "Review & export",
+          ].map((label, i) => (
+            <div
+              key={label}
+              className={
+                activeStage === i
+                  ? "current"
+                  : activeStage > i
+                    ? "complete"
+                    : ""
+              }
+            >
+              <span>
+                {activeStage > i ? (
+                  <Check size={13} />
+                ) : (
+                  String(i + 1).padStart(2, "0")
+                )}
+              </span>
+              {label}
+            </div>
+          ))}
+        </div>
+      )}
       {error && (
         <p role="alert" className="form-error">
           {error}
@@ -187,9 +197,9 @@ export default function Home() {
       )}
       {!task ? (
         <>
-          <div className="workspace-grid">
+          <div className="import-workspace">
             <section
-              className={`upload-card ${drag ? "dragging" : ""}`}
+              className={`import-surface ${drag ? "dragging" : ""}`}
               onDragOver={(e) => {
                 e.preventDefault();
                 setDrag(true);
@@ -205,20 +215,19 @@ export default function Home() {
                 choose(e.dataTransfer.files[0]);
               }}
             >
-              <div className="section-kicker">
-                <span>START WITH A SPREADSHEET</span>
-                <span>01 — 04</span>
-              </div>
-              <div className="upload-center">
-                <div className="file-illustration" aria-hidden="true">
-                  <FileSpreadsheet size={40} strokeWidth={1.1} />
-                  <span>CSV / XLSX</span>
+              <header className="surface-toolbar">
+                <span>
+                  <span className="tab-marker" />
+                  New file
+                </span>
+                <span className="toolbar-meta">CSV / XLSX</span>
+              </header>
+              <div className="import-target">
+                <div className="import-symbol" aria-hidden="true">
+                  <Upload size={27} strokeWidth={1.4} />
                 </div>
-                <h2>A little privacy starts here.</h2>
-                <p>
-                  Drop your spreadsheet here, or choose
-                  <br className="desktop-break" /> a file from your device.
-                </p>
+                <h2>Drop a spreadsheet here</h2>
+                <p>or select one from your device</p>
                 <input
                   ref={input}
                   type="file"
@@ -235,80 +244,95 @@ export default function Home() {
                   disabled={!!busy}
                   onClick={() => input.current.click()}
                 >
-                  <Upload size={16} />
-                  Choose a file
+                  Choose a file <ArrowRight size={16} />
                 </button>
-                <small>CSV or Excel · Up to 5 MiB · 5 uploads per day</small>
+                <span className="import-limit">Up to 5 MiB per file</span>
               </div>
-              <div className="upload-bottom">
-                <ShieldCheck size={15} />
-                <span>You choose the columns. We handle the masking.</span>
+              <div className="surface-status">
+                <span className="status-light" />
+                No file selected<span>Files are processed on the server</span>
               </div>
             </section>
-            <aside className="workflow-note">
-              <p className="eyebrow">LESS EXPOSURE. SAME PURPOSE.</p>
-              <h2>
-                Make room for
-                <br />a little privacy.
-              </h2>
-              <p>
-                A name, an email, a phone number.
-                <br />
-                Some details don’t need to travel
-                <br className="desktop-break" /> with your spreadsheet.
-              </p>
-              <div className="how-step">
-                <span>01</span>
+            <aside className="import-inspector">
+              <h2>Before you start</h2>
+              <dl>
                 <div>
-                  <h3>Bring your data</h3>
-                  <p>Start with a CSV or Excel file.</p>
+                  <dt>File format</dt>
+                  <dd>CSV or Excel (.xlsx)</dd>
                 </div>
-              </div>
-              <div className="how-step">
-                <span>02</span>
                 <div>
-                  <h3>Choose what stays private</h3>
-                  <p>Select columns to mask.</p>
+                  <dt>Upload limit</dt>
+                  <dd>5 MiB · 5 files per day</dd>
                 </div>
-              </div>
-              <div className="how-step">
-                <span>03</span>
                 <div>
-                  <h3>Review, then share</h3>
-                  <p>Check the result before exporting.</p>
+                  <dt>Export format</dt>
+                  <dd>Signed CSV</dd>
                 </div>
+              </dl>
+              <div className="inspector-note">
+                <KeyRound size={18} />
+                <h3>Keep your file key</h3>
+                <p>
+                  You’ll create a key for your original file. Save it somewhere
+                  safe; it can’t be reset.
+                </p>
               </div>
               <Link to="/about-us" className="text-link">
-                A closer look at how it works <ArrowUpRight size={15} />
+                How masking works <ArrowUpRight size={14} />
               </Link>
             </aside>
           </div>
-          <section className="example-panel">
+          <section className="recent-section">
             <div className="section-heading">
-              <div>
-                <p className="eyebrow">THE SMALL CHANGE THAT MATTERS</p>
-                <h2>Useful context. Fewer personal details.</h2>
-              </div>
-              <span className="sample-tag">ILLUSTRATIVE EXAMPLE</span>
+              <h2>
+                Recent files <span>{recent.length}</span>
+              </h2>
+              <Link to="/folder">
+                View all <ArrowUpRight size={14} />
+              </Link>
             </div>
-            <div className="example-columns">
-              <DataPreview rows={example} />
-              <div className="example-arrow">
-                <ArrowRight size={21} />
+            <div className="recent-table">
+              <div className="recent-columns">
+                <span>NAME</span>
+                <span>STATUS</span>
+                <span>UPLOADED</span>
               </div>
-              <DataPreview
-                rows={example.map((row) => ({
-                  ...row,
-                  name: "••••••••",
-                  email: "••••••••",
-                }))}
-                selected={["name", "email"]}
-              />
+              {recent.length ? (
+                recent.map((file) => (
+                  <Link to="/folder" className="recent-data-row" key={file.id}>
+                    <span>
+                      <FileSpreadsheet size={18} />
+                      {file.name || "Untitled file"}
+                    </span>
+                    <span className="status">
+                      {file.status === "mask" ? "Masked" : "Ready to mask"}
+                    </span>
+                    <span>
+                      {new Date(file.uploadedAt).toLocaleDateString()}
+                    </span>
+                  </Link>
+                ))
+              ) : (
+                <div className="recent-empty">
+                  <FolderOpen size={22} strokeWidth={1.3} />
+                  <div>
+                    <h3>
+                      {libraryError
+                        ? "File library unavailable"
+                        : "No files yet"}
+                    </h3>
+                    <p>
+                      {libraryError
+                        ? "Open the library to retry."
+                        : "Your uploaded files will appear here."}
+                    </p>
+                  </div>
+                  <Link to="/folder" aria-label="Open file library">
+                    <ArrowUpRight size={18} />
+                  </Link>
+                </div>
+              )}
             </div>
-            <p className="preview-caption">
-              An illustration of masking. Actual results depend on your column
-              names and the masking rules.
-            </p>
           </section>
         </>
       ) : (
@@ -341,9 +365,7 @@ export default function Home() {
                 <KeyRound size={25} />
               </span>
               <h2>
-                {task.id
-                  ? "Open your original"
-                  : "Keep the original recoverable."}
+                {task.id ? "Open your original" : "Set an encryption key"}
               </h2>
               <p className="muted">
                 {task.id
@@ -393,11 +415,7 @@ export default function Home() {
               <div className="editor-layout">
                 <div className="column-selector">
                   <p className="eyebrow">CHOOSE WHAT TO MASK</p>
-                  <h2>
-                    Keep the useful.
-                    <br />
-                    Mask the personal.
-                  </h2>
+                  <h2>Select columns</h2>
                   <p className="muted">
                     Selected columns use the existing automatic masking rules.
                     Unselected columns stay unchanged.
@@ -498,7 +516,7 @@ export default function Home() {
                   <span className="status masked">
                     <Check size={13} /> Masking complete
                   </span>
-                  <h2>One last look before it leaves.</h2>
+                  <h2>Review masked data</h2>
                   <p className="muted">
                     Inspect the values before sharing. Masking can retain
                     partial information.
@@ -557,13 +575,6 @@ export default function Home() {
           )}
         </section>
       )}
-      <div className="privacy-footnote">
-        <KeyRound size={16} />
-        <p>
-          Files are processed on the server. Your encryption key stays yours.{" "}
-          <Link to="/about-us">Understand your privacy</Link>
-        </p>
-      </div>
     </Workspace>
   );
 }

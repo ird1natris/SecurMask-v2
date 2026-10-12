@@ -56,8 +56,8 @@ const ContactUs = () => {
     <Workspace title="Help & feedback">
       <div className="page-heading">
         <div>
-          <p className="eyebrow">WE’RE LISTENING</p>
-          <h1>A little help goes a long way.</h1>
+          <p className="eyebrow">SUPPORT</p>
+          <h1>Help & feedback</h1>
           <p>Have a question, an idea, or something that isn’t working?</p>
         </div>
       </div>

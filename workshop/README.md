@@ -1,6 +1,6 @@
 # SecurMask Workshop
 
-Standalone browser-only practice app using six supplied fictional records. No uploads, authentication, API, analytics, database, or real patient data. Exercise choices live in memory and reset on reload; the PWA caches the app and its fictional sample for offline use.
+Standalone browser-only app with a guided fictional practice exercise and a Files workspace for CSV/XLSX imports. Files are parsed in a browser worker and never sent to a server. No authentication, API, analytics, or database. Files and choices live in memory and reset on reload; the PWA caches application assets and the fictional sample only.
 
 ## Development
 
@@ -28,4 +28,8 @@ Selected names become stable per-row practice IDs; phone and clinical-note value
 
 ## Design
 
-Light ivory surfaces, ink text, muted olive controls, IBM Plex type, an accessible three-destination dock, and no gradients. Guidance consulted: [UI UX Pro Max](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill), minimal Swiss layout, React semantics and accessibility checklists. No third-party skill code is bundled into the application.
+Light ivory surfaces, ink text, muted olive controls, IBM Plex type, an accessible four-destination dock, and no gradients. Guidance consulted: [UI UX Pro Max](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill), minimal Swiss layout, React semantics and accessibility checklists. No third-party skill code is bundled into the application.
+
+## Files workspace
+
+CSV and XLSX up to 5 MB, 10,000 data rows, 100 columns. CSV must use UTF-8. Select a visible worksheet for XLSX; formulas are rejected with instructions to export values first. Headers must be unique and non-empty. Preview shows the first 20 rows; export contains all rows of the selected sheet. Formatting and other worksheets are not exported. Rules are explicit: keep, remove values, replace with per-row IDs, or actual ten-year age bands (whole ages 0–120). Blank cells remain blank. Formula-like values are escaped in CSV exports. No automatic PII detection or anonymity guarantee. Clear file terminates processing and drops the in-memory dataset.

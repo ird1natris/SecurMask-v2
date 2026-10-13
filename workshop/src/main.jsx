@@ -17,6 +17,7 @@ import {
   WifiOff,
   X,
   Info,
+  Files as FilesIcon,
 } from "lucide-react";
 import "@fontsource/ibm-plex-sans/latin-400.css";
 import "@fontsource/ibm-plex-sans/latin-500.css";
@@ -24,7 +25,8 @@ import "@fontsource/ibm-plex-sans/latin-600.css";
 import "@fontsource/ibm-plex-mono/latin-400.css";
 import { fields, records, maskRecords, toCsv } from "./data";
 import "./style.css";
-const sections = ["practice", "guide", "install"];
+import Files from "./Files";
+const sections = ["practice", "files", "guide", "install"];
 function currentPage() {
   return sections.includes(location.hash.slice(1))
     ? location.hash.slice(1)
@@ -143,7 +145,8 @@ function App() {
           <span>THE PRIVACY PRACTICE</span>
           <span>LEARN BY DOING / 01</span>
         </div>
-        {page === "practice" ? (
+        <Files active={page === "files"} />
+        {page === "files" ? null : page === "practice" ? (
           <>
             <div className="intro">
               <div>
@@ -189,6 +192,9 @@ function App() {
                 </p>
               </div>
             </div>
+            <a className="upload-shortcut" href="#files">
+              Have a spreadsheet? Open your own file <Icon as={ArrowUpRight} />
+            </a>
             <ol className="steps" aria-label="Exercise progress">
               {["Explore", "Mask", "Review"].map((name, i) => (
                 <li key={name} aria-current={step === i ? "step" : undefined}>
@@ -593,7 +599,7 @@ function App() {
                 </p>
                 <hr />
                 <p>
-                  Your exercise choices stay in memory and reset when you
+                  Your files and choices stay in memory and reset when you
                   reload. Only the app and its fictional sample are cached.
                 </p>
                 {update && (
@@ -619,11 +625,12 @@ function App() {
       <footer className="footer">
         <span>SECURMASK</span>
         <span>A practice space for thoughtful sharing.</span>
-        <span>Synthetic data only</span>
+        <span>Processed on your device</span>
       </footer>
       <nav className="dock" aria-label="Main navigation">
         {[
           ["practice", SlidersHorizontal, "Practice"],
+          ["files", FilesIcon, "Files"],
           ["guide", BookOpen, "Field guide"],
           ["install", MonitorSmartphone, "Get the app"],
         ].map(([id, icon, label]) => (

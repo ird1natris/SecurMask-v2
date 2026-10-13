@@ -93,6 +93,71 @@ try {
     if (width === 375)
       await page.screenshot({ path: out + "/mobile.png", fullPage: false });
   }
+  await page.getByRole("link", { name: "Files", exact: true }).click();
+  const upload = page.getByLabel("Choose a spreadsheet", { exact: true });
+  const fixture = {
+    name: "actual.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(
+      "Name,Age,Note\nTest Person,34,Asthma\nSecond Person,57,Follow-up",
+    ),
+  };
+  await upload.setInputFiles(fixture);
+  await page.getByRole("cell", { name: "Test Person", exact: true }).waitFor();
+  await page.getByLabel("Name", { exact: true }).selectOption("id");
+  await page.getByLabel("Age", { exact: true }).selectOption("age");
+  await page.getByRole("button", { name: "Review file", exact: true }).click();
+  await page.getByRole("cell", { name: "30–39", exact: true }).waitFor();
+  await page
+    .getByLabel("I reviewed the result and the details that remain.")
+    .check();
+  const fileDownload = page.waitForEvent("download");
+  await page
+    .getByRole("button", { name: "Download masked CSV", exact: true })
+    .click();
+  const exported = await readFile(await (await fileDownload).path(), "utf8");
+  assert.ok(
+    exported.includes("Row 0001") &&
+      exported.includes("Asthma") &&
+      !exported.includes("Test Person"),
+  );
+  await page.getByRole("link", { name: "Field guide", exact: true }).click();
+  await page.getByRole("link", { name: "Files", exact: true }).click();
+  await page.getByRole("cell", { name: "Row 0001", exact: true }).waitFor();
+  await page.setViewportSize({ width: 390, height: 844 });
+  assert.ok(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  );
+  await page.screenshot({ path: out + "/files-mobile.png" });
+  await page.setViewportSize({ width: 1440, height: 1100 });
+  await page.screenshot({ path: out + "/files-desktop.png", fullPage: true });
+  const workshopRequire = createRequire(
+    new URL("../workshop/package.json", import.meta.url),
+  );
+  const ExcelJS = workshopRequire("exceljs");
+  const book = new ExcelJS.Workbook();
+  book.addWorksheet("First").addRows([
+    ["Name", "Age"],
+    ["Excel Person", 42],
+  ]);
+  book.addWorksheet("Second").addRows([
+    ["Name", "Age"],
+    ["Other Person", 68],
+  ]);
+  await upload.setInputFiles({
+    name: "actual.xlsx",
+    mimeType:
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    buffer: Buffer.from(await book.xlsx.writeBuffer()),
+  });
+  await page.getByRole("cell", { name: "Excel Person", exact: true }).waitFor();
+  await page.getByLabel("Worksheet", { exact: true }).selectOption("1");
+  await page.getByRole("cell", { name: "Other Person", exact: true }).waitFor();
+  await page.getByRole("button", { name: "Clear file", exact: true }).click();
+  await page.getByRole("heading", { name: "A fresh workspace." }).waitFor();
+  await page.getByRole("link", { name: "Practice", exact: true }).click();
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready;
@@ -108,6 +173,20 @@ try {
       .getByRole("cell", { name: "Person 01", exact: true })
       .isVisible(),
   );
+  await page.getByRole("link", { name: "Files", exact: true }).click();
+  await upload.setInputFiles(fixture);
+  await page.getByRole("cell", { name: "Test Person", exact: true }).waitFor();
+  const cachesText = await page.evaluate(async () => {
+    const output = [];
+    for (const key of await caches.keys()) {
+      const cache = await caches.open(key);
+      for (const request of await cache.keys()) {
+        output.push(await (await cache.match(request)).text());
+      }
+    }
+    return output.join("");
+  });
+  assert.ok(!cachesText.includes("Test Person"));
   assert.equal(errors.length, 0, errors.join("\n"));
   console.log(
     "PASS: desktop/mobile layout, selection, actual age bands, comparison, export review gate, CSV, hash history, restart, offline exercise, no browser errors.",

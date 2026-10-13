@@ -1,0 +1,24 @@
+{
+ admin off
+ auto_https off
+}
+:{$PORT:3000} {
+ encode gzip
+ header {
+  X-Content-Type-Options nosniff
+  Referrer-Policy no-referrer
+  X-Frame-Options DENY
+  Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+ }
+ handle /health {
+  respond "ok" 200
+ }
+ handle {
+  root * /srv
+  try_files {path} /index.html
+  header /index.html Cache-Control "no-cache"
+  header /sw.js Cache-Control "no-cache"
+  header /manifest.webmanifest Cache-Control "no-cache"
+  file_server
+ }
+}

@@ -162,8 +162,24 @@ test('HTTP upload, mask, recovery, signatures and deletion use volume storage an
     const { signature } = await signed.json();
     assert.equal((await request('/verify-signature', { fileId, fileContent: 'name\nHidden\n', signature })).status, 200);
     assert.equal((await request('/verify-signature', { fileId, fileContent: 'tampered', signature })).status, 400);
+    // The installed app reads its account library from the server, never another user's data.
+    const get = (path, user = f.user) => fetch(base + path, { headers: user ? { 'x-user': user } : {} });
+    assert.equal((await get('/files', null)).status, 401);
+    assert.equal((await get('/masked-file?id=' + fileId, null)).status, 401);
+    assert.deepEqual((await (await get('/files', f.other)).json()).files, []);
+    const library = (await (await get('/files')).json()).files;
+    assert.equal(library.length, 1);
+    assert.equal(library[0].id, fileId);
+    assert.equal(library[0].name, 'test.csv');
+    assert.equal(library[0].status, 'mask');
+    assert.deepEqual(Object.keys(library[0]).sort(), ['id', 'name', 'status', 'uploadedAt']);
+    assert.equal((await get('/masked-file?id=' + fileId, f.other)).status, 404);
+    assert.equal((await get('/masked-file?id=invalid')).status, 404);
+    assert.equal((await (await get('/masked-file?id=' + fileId)).json()).content, 'name\nHidden\n');
     assert.equal((await request('/deleteFile', { id: fileId }, f.other, 'DELETE')).status, 404);
     assert.equal((await request('/deleteFile', { id: fileId }, f.user, 'DELETE')).status, 200);
+    assert.deepEqual((await (await get('/files')).json()).files, []);
+    assert.equal((await get('/masked-file?id=' + fileId)).status, 404);
     assert.deepEqual(await readdir(f.root), []);
 });
 

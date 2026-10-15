@@ -75,7 +75,7 @@ const CustomMaskBuilder = ({ isOpen, onClose }) => {
                                 />
                                 <span className="text-gray-700">{label}:</span>
                                 <select
-                                    className="w-[200px] h-8 bg-[#c0dbea] rounded ml-14 text-sm font-medium text-gray-800"
+                                    className="w-[200px] h-8 bg-[#c0dbea] rounded-sm ml-14 text-sm font-medium text-gray-800"
                                     value={selectedTechniques[key] || ''}
                                     onChange={handleTechniqueChange(key)}
                                     disabled={!isChecked[key]}
@@ -104,7 +104,7 @@ const CustomMaskBuilder = ({ isOpen, onClose }) => {
                                 />
                                 <span className="text-gray-700 mr-8">{label}:</span>
                                 <select
-                                    className="w-[200px] h-8 bg-[#c0dbea] rounded ml-28 text-sm font-medium text-gray-800"
+                                    className="w-[200px] h-8 bg-[#c0dbea] rounded-sm ml-28 text-sm font-medium text-gray-800"
                                     value={selectedTechniques[key] || ''}
                                     onChange={handleTechniqueChange(key)}
                                     disabled={!isChecked[key]}
@@ -129,7 +129,7 @@ const CustomMaskBuilder = ({ isOpen, onClose }) => {
                     className="absolute top-4 right-4 cursor-pointer"
                     onClick={onClose}
                 />
-                <button className="bg-[#872DFB] text-white py-2 px-6 rounded-full mb-2 absolute bottom-4 right-8 cursor-pointer">
+                <button className="bg-hover text-white py-2 px-6 rounded-full mb-2 absolute bottom-4 right-8 cursor-pointer">
                     Run
                 </button>
             </div>

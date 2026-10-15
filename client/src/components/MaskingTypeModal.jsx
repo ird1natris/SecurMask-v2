@@ -26,7 +26,7 @@ const MaskingTypeModal = ({ isOpen, onClose ,onSelectCustom,fileId,onMaskedUpdat
         <div className="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-50 z-50" onClick={handleOverlayClick}>
           <div className="bg-white p-6 rounded-lg shadow-lg w-[300px] text-center">
             <h3 className="text-lg font-semibold mb-4">Select Masking Type</h3>
-            <button onClick={handleSelectDefault} className="bg-[#872DFB] text-white py-2 px-4 rounded-md mb-2 w-full">
+            <button onClick={handleSelectDefault} className="bg-hover text-white py-2 px-4 rounded-md mb-2 w-full">
               Default Masking
             </button>
             <button onClick={handleSelectCustom} className="bg-[#5A2EBB] text-white py-2 px-4 rounded-md w-full">

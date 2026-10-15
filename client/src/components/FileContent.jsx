@@ -70,7 +70,7 @@ const FileContent = ({ fileName, fileData, fileId, onMaskedUpdate, columns }) =>
     <div style={{ maxWidth: '1340px' }} className="relative mx-auto">
       <div style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'white' }} className="h-[50px] flex justify-end space-x-3 p-5">
         <Download onClick={handleDownload} color="#872DFB" className="cursor-pointer" />
-        <button onClick={handleMaskingTypeClick} className="bg-[#872DFB] cursor-pointer text-white w-[150px] h-[30px] rounded-lg">Mask Data</button>
+        <button onClick={handleMaskingTypeClick} className="bg-hover cursor-pointer text-white w-[150px] h-[30px] rounded-lg">Mask Data</button>
       </div>
 
       {Array.isArray(displayedFileData) && displayedFileData.length > 0 ? (

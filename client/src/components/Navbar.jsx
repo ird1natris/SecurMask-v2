@@ -44,7 +44,7 @@ const Navbar = () => {
         {navLinks.map((nav, index) => (
           <li key={nav.id}
             className={`font-poppins font-normal cursor-pointer text-[16px] ${index === navLinks.length - 1 ? 'mr-0' : 'mr-10'} text-white 
-              ${location.pathname === nav.path ? 'bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 text-transparent bg-clip-text' : 'hover:bg-gradient-to-r hover:from-purple-500 hover:via-purple-600 hover:to-purple-700 hover:text-transparent hover:bg-clip-text'}`}
+              ${location.pathname === nav.path ? 'bg-linear-to-r from-purple-500 via-purple-600 to-purple-700 text-transparent bg-clip-text' : 'hover:bg-linear-to-r hover:from-purple-500 hover:via-purple-600 hover:to-purple-700 hover:text-transparent hover:bg-clip-text'}`}
           >
             <Link to={nav.path}>
               {nav.title && <span>{nav.title}</span>}
@@ -68,12 +68,12 @@ const Navbar = () => {
           onClick={() => settoggle((prev) => !prev)}
         />
 
-        <div className={`${toggle ? 'flex' : 'hidden'} p-6 bg-gradient-to-r from-gray-700 via-black to-gray-700 absolute top-20 right-0 mx-4 my-2 min-w-[140px] rounded-xl sidebar`}>
+        <div className={`${toggle ? 'flex' : 'hidden'} p-6 bg-linear-to-r from-gray-700 via-black to-gray-700 absolute top-20 right-0 mx-4 my-2 min-w-[140px] rounded-xl sidebar`}>
           <ul className='list-none flex flex-col justify-end items-center flex-1'>
             {navLinks.map((nav, index) => (
               <li key={nav.id}
                 className={`font-poppins font-normal cursor-pointer text-[16px] ${index === navLinks.length - 1 ? 'mr-0' : 'mb-4'} text-white 
-                  ${location.pathname === nav.path ? 'bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 text-transparent bg-clip-text' : 'hover:bg-gradient-to-r hover:from-purple-500 hover:via-purple-600 hover:to-purple-700 hover:text-transparent hover:bg-clip-text'}`}
+                  ${location.pathname === nav.path ? 'bg-linear-to-r from-purple-500 via-purple-600 to-purple-700 text-transparent bg-clip-text' : 'hover:bg-linear-to-r hover:from-purple-500 hover:via-purple-600 hover:to-purple-700 hover:text-transparent hover:bg-clip-text'}`}
               >
                 <Link to={nav.path}>
                   {nav.title && <span>{nav.title}</span>}

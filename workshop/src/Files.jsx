@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Upload,
   ArrowRight,
@@ -8,11 +8,16 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { transformTable, exportCsv, MASK_RULES } from "./upload-data";
+import { detectSensitive, protectionSummary } from './sensitive-data';
+import SensitiveSuggestions, { ProtectionReport } from './SensitiveSuggestions';
 export default function Files({ active }) {
   const [file, setFile] = useState(null),
     [sheets, setSheets] = useState([]),
     [sheetIndex, setSheetIndex] = useState(0),
     [rules, setRules] = useState({}),
+    [showSuggestions, setShowSuggestions] = useState(false),
+    [onlySensitive, setOnlySensitive] = useState(false),
+    [appliedMessage, setAppliedMessage] = useState(''),
     [result, setResult] = useState(null),
     [view, setView] = useState("masked"),
     [busy, setBusy] = useState(false),
@@ -24,6 +29,21 @@ export default function Files({ active }) {
     input = useRef(null),
     heading = useRef(null);
   const data = sheets[sheetIndex];
+  const detections = useMemo(() => data && !data.error ? detectSensitive(data) : [], [data]);
+  const report = useMemo(() => result ? protectionSummary(data, result, rules, detections) : null, [data, result, rules, detections]);
+  function resetReview() {
+    setResult(null);
+    setAck(false);
+    setDone(false);
+    setError('');
+    setAppliedMessage('');
+  }
+  function applySuggestions(next) {
+    setRules(current => ({ ...current, ...next }));
+    resetReview();
+    setShowSuggestions(false);
+    setAppliedMessage(`${Object.keys(next).length} suggestions applied. Review your file to see the result and protection score.`);
+  }
   useEffect(
     () => () => {
       worker.current?.terminate();
@@ -50,6 +70,9 @@ export default function Files({ active }) {
     setSheets([]);
     setSheetIndex(0);
     setRules({});
+    setShowSuggestions(false);
+    setOnlySensitive(false);
+    setAppliedMessage('');
     setResult(null);
     setError("");
     setAck(false);
@@ -195,9 +218,9 @@ export default function Files({ active }) {
                 onChange={(e) => {
                   setSheetIndex(Number(e.target.value));
                   setRules({});
-                  setResult(null);
-                  setAck(false);
-                  setError("");
+                  setShowSuggestions(false);
+                  setOnlySensitive(false);
+                  resetReview();
                 }}
               >
                 {sheets.map((sheet, i) => (
@@ -285,12 +308,13 @@ export default function Files({ active }) {
                     </tbody>
                   </table>
                 </div>
+                {report && <ProtectionReport report={report} />}
                 <div className="lesson">
                   <ShieldCheck size={22} aria-hidden="true" />
                   <div>
                     <h3>Review what remains.</h3>
                     <p>
-                      No sensitive fields are detected automatically. Unchanged
+                      Pattern detection can miss sensitive fields. Unchanged
                       columns and combinations of details may still identify
                       someone. Download contains the selected worksheet only, as
                       values in CSV format.
@@ -305,8 +329,14 @@ export default function Files({ active }) {
                   Every column starts unchanged. Choose a rule for each field
                   you want to mask.
                 </p>
+                <button className="secondary" aria-expanded={showSuggestions} onClick={() => setShowSuggestions(value => !value)}>
+                  {showSuggestions ? 'Close suggestions' : 'Suggest sensitive fields'}
+                </button>
+                {showSuggestions && <SensitiveSuggestions detections={detections} rules={rules} onApply={applySuggestions} />}
+                {appliedMessage && <p role="status" className="micro">{appliedMessage}</p>}
+                <label className="ack"><input type="checkbox" checked={onlySensitive} onChange={e => setOnlySensitive(e.target.checked)} />Show likely sensitive columns only ({detections.length})</label>
                 <div className="upload-rules">
-                  {data.headers.map((h, i) => (
+                  {data.headers.map((h, i) => (!onlySensitive || detections.some(d => d.column === i)) && (
                     <label key={i}>
                       <span>{h}</span>
                       <select
@@ -315,10 +345,7 @@ export default function Files({ active }) {
                         value={rules[i] || "keep"}
                         onChange={(e) => {
                           setRules((r) => ({ ...r, [i]: e.target.value }));
-                          setResult(null);
-                          setAck(false);
-                          setDone(false);
-                          setError("");
+                          resetReview();
                         }}
                       >
                         {MASK_RULES.map((rule) => (

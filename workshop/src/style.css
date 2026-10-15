@@ -1251,3 +1251,19 @@ input,
     font-size: 13px;
   }
 }
+
+/* Pattern suggestions share the existing inspector controls and typography. */
+.smart-panel { margin: 20px 0; padding: 18px; border: 1px solid var(--muted); border-radius: 8px; background: var(--tint); overflow-wrap: anywhere; }
+.sheet > .smart-panel { margin: 20px; }
+.smart-panel h3 { margin: 0 0 10px; font-size: 17px; }
+.smart-panel p { font-size: 13px; line-height: 1.6; }
+.smart-panel .micro { font-size: 12px; }
+.smart-panel progress { width: 100%; accent-color: var(--ink); }
+.smart-panel summary { cursor: pointer; font-size: 13px; padding: 8px 0; }
+.smart-panel li { font-size: 13px; margin-bottom: 8px; }
+.smart-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.smart-actions button { font-size: 12px; }
+.suggestion-list { max-height: 440px; overflow: auto; margin: 16px 0; }
+.suggestion { padding: 12px 0; border-bottom: 1px solid var(--muted); }
+.suggestion .ack { margin: 0; }
+.suggestion select { width: 100%; min-height: 44px; padding: 8px; font: inherit; font-size: 13px; background: var(--white); color: var(--ink); border: 1px solid var(--muted); border-radius: 5px; }

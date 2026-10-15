@@ -37,6 +37,7 @@ export function ProtectionReport({ report }) {
   return <section className="smart-panel" aria-label="Masking protection report" role="status">
     <h3>{report.score === null ? 'Protection score: not available' : `Protection score: ${report.score}%`}</h3>
     <p>Coverage of detected sensitive cells — not a safety or anonymity rating.</p>
+    <p><strong>Keep only what the task needs, rather than aiming for 100%.</strong> A higher score alone does not make sharing appropriate.</p>
     {report.score !== null && <>
       <progress aria-label="Detected sensitive data protection" value={report.score} max="100" />
       <p>{report.full} fully replaced · {report.partial} partially hidden · {report.unchanged} unchanged or incompatible rule</p>

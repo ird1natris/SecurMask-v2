@@ -7,7 +7,7 @@ import {
   FileSpreadsheet,
   ShieldCheck,
 } from "lucide-react";
-import { transformTable, exportCsv } from "./upload-data";
+import { transformTable, exportCsv, MASK_RULES } from "./upload-data";
 export default function Files({ active }) {
   const [file, setFile] = useState(null),
     [sheets, setSheets] = useState([]),
@@ -311,6 +311,7 @@ export default function Files({ active }) {
                       <span>{h}</span>
                       <select
                         aria-label={h}
+                        aria-describedby={`mask-help-${i}`}
                         value={rules[i] || "keep"}
                         onChange={(e) => {
                           setRules((r) => ({ ...r, [i]: e.target.value }));
@@ -320,17 +321,20 @@ export default function Files({ active }) {
                           setError("");
                         }}
                       >
-                        <option value="keep">Keep unchanged</option>
-                        <option value="remove">Remove values</option>
-                        <option value="id">Replace with row ID</option>
-                        <option value="age">Age → 10-year band</option>
+                        {MASK_RULES.map((rule) => (
+                          <option key={rule.value} value={rule.value}>{rule.label}</option>
+                        ))}
                       </select>
+                      <small id={`mask-help-${i}`}>
+                        {MASK_RULES.find((rule) => rule.value === (rules[i] || "keep")).help}
+                      </small>
                     </label>
                   ))}
                 </div>
                 <p className="small">
-                  Row IDs identify rows, not people. Age bands accept whole ages
-                  from 0 to 120; blanks stay blank.
+                  Row IDs use column headings and identify rows, not people. Partial
+                  hiding keeps some original details visible. Blanks stay blank;
+                  phone numbers with 4 digits or fewer are fully hidden.
                 </p>
                 <button className="primary" onClick={review}>
                   Review file <ArrowRight size={17} aria-hidden="true" />

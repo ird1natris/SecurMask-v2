@@ -117,13 +117,13 @@ try {
     .click();
   const exported = await readFile(await (await fileDownload).path(), "utf8");
   assert.ok(
-    exported.includes("Row 0001") &&
+    exported.includes("Name 0001") &&
       exported.includes("Asthma") &&
       !exported.includes("Test Person"),
   );
   await page.getByRole("link", { name: "Field guide", exact: true }).click();
   await page.getByRole("link", { name: "Files", exact: true }).click();
-  await page.getByRole("cell", { name: "Row 0001", exact: true }).waitFor();
+  await page.getByRole("cell", { name: "Name 0001", exact: true }).waitFor();
   await page.setViewportSize({ width: 390, height: 844 });
   assert.ok(
     await page.evaluate(
@@ -133,6 +133,29 @@ try {
   await page.screenshot({ path: out + "/files-mobile.png" });
   await page.setViewportSize({ width: 1440, height: 1100 });
   await page.screenshot({ path: out + "/files-desktop.png", fullPage: true });
+  await upload.setInputFiles({
+    name: "partial.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from("Email,Phone,Code,Secret\nalice@example.com,+60 12-345 6789,ABC1234567,Private"),
+  });
+  await page.getByRole("cell", { name: "alice@example.com", exact: true }).waitFor();
+  for (const [column, rule] of [["Email", "email"], ["Phone", "phone"], ["Code", "last4"], ["Secret", "redact"]]) {
+    await page.getByLabel(column, { exact: true }).selectOption(rule);
+  }
+  await page.getByRole("button", { name: "Review file", exact: true }).click();
+  for (const value of ["aXXXX@example.com", "+XX XX-XXX 6789", "XXXXXX4567", "XXXXXXX"]) {
+    await page.getByRole("cell", { name: value, exact: true }).waitFor();
+  }
+  await page.getByLabel("I reviewed the result and the details that remain.").check();
+  const partialDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download masked CSV", exact: true }).click();
+  const partialCsv = await readFile(await (await partialDownload).path(), "utf8");
+  assert.ok(partialCsv.includes("aXXXX@example.com") && partialCsv.includes("+XX XX-XXX 6789"));
+  assert.ok(!partialCsv.includes("alice@") && !partialCsv.includes("Private"));
+  await page.getByLabel("Email", { exact: true }).selectOption("remove");
+  assert.equal(await page.getByRole("button", { name: "Download masked CSV", exact: true }).count(), 0);
+  await page.getByRole("button", { name: "Review file", exact: true }).click();
+  assert.ok(await page.getByRole("button", { name: "Download masked CSV", exact: true }).isDisabled());
   const workshopRequire = createRequire(
     new URL("../workshop/package.json", import.meta.url),
   );

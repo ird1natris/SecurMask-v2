@@ -95,6 +95,46 @@ try {
   }
   await page.getByRole("link", { name: "Files", exact: true }).click();
   const upload = page.getByLabel("Choose a spreadsheet", { exact: true });
+  await page.getByRole("button", {name: "Try a sample", exact: true}).click();
+  await page.getByRole("cell", {name: "Aina Example", exact: true}).waitFor();
+  await page.getByText("Fictional workshop sample", {exact: true}).waitFor();
+  assert.equal(await page.getByRole("button", {name: "Try a sample", exact: true}).count(), 0);
+  await page.getByLabel("Email", {exact: true}).selectOption("keep");
+  await page.getByRole("button", {name: "Suggest sensitive fields", exact: true}).click();
+  await page.getByRole("button", {name: "Apply 4 selected suggestions", exact: true}).click();
+  await page.getByRole("button", {name: "Review file", exact: true}).click();
+  await page.getByRole("cell", {name: "Name 0001", exact: true}).waitFor();
+  await page.getByText("Keep only what the task needs, rather than aiming for 100%.", {exact: true}).waitFor();
+  await page.getByLabel("I reviewed the result and the details that remain.").check();
+  const sampleDownload = page.waitForEvent("download");
+  await page.getByRole("button", {name: "Download masked CSV", exact: true}).click();
+  const sampleCsv = await readFile(await (await sampleDownload).path(), "utf8");
+  assert.ok(sampleCsv.includes("Name 0001") && sampleCsv.includes("Morning") && !sampleCsv.includes("Aina Example"));
+  await page.getByRole("button", {name: "Undo applied suggestions", exact: true}).click();
+  assert.equal(await page.getByLabel("Name", {exact: true}).inputValue(), "keep");
+  assert.equal(await page.getByLabel("Email", {exact: true}).inputValue(), "keep");
+  assert.equal(await page.getByRole("button", {name: "Download masked CSV", exact: true}).count(), 0);
+  assert.equal(await page.getByRole("status", {name: "Masking protection report"}).count(), 0);
+  await page.getByRole("button", {name: "Suggest sensitive fields", exact: true}).click();
+  assert.ok(await page.getByLabel("Suggest Email", {exact: true}).isDisabled());
+  assert.ok(await page.getByLabel("Suggest Name", {exact: true}).isChecked());
+  await page.getByRole("button", {name: "Apply 4 selected suggestions", exact: true}).click();
+  // Undo applies only to the latest batch, including explicitly replaced rules.
+  await page.getByRole("button", {name: "Suggest sensitive fields", exact: true}).click();
+  await page.getByLabel("Replace existing column rules when selected").check();
+  await page.getByRole("button", {name: "Select all suggestions", exact: true}).click();
+  await page.getByRole("button", {name: "Apply 6 selected suggestions", exact: true}).click();
+  assert.equal(await page.getByLabel("Email", {exact: true}).inputValue(), "email");
+  await page.getByRole("button", {name: "Undo applied suggestions", exact: true}).click();
+  assert.equal(await page.getByLabel("Email", {exact: true}).inputValue(), "keep");
+  assert.equal(await page.getByLabel("Name", {exact: true}).inputValue(), "id");
+  await page.getByRole("button", {name: "Suggest sensitive fields", exact: true}).click();
+  await page.getByLabel("Suggest Notes", {exact: true}).check();
+  await page.getByRole("button", {name: "Apply 1 selected suggestions", exact: true}).click();
+  await page.getByLabel("Name", {exact: true}).selectOption("redact");
+  assert.equal(await page.getByRole("button", {name: "Undo applied suggestions", exact: true}).count(), 0);
+  await page.getByRole("button", {name: "Clear file", exact: true}).click();
+  assert.equal(await page.getByText("Fictional workshop sample", {exact: true}).count(), 0);
   const fixture = {
     name: "actual.csv",
     mimeType: "text/csv",
@@ -236,6 +276,9 @@ try {
       .isVisible(),
   );
   await page.getByRole("link", { name: "Files", exact: true }).click();
+  await page.getByRole("button", {name: "Try a sample", exact: true}).click();
+  await page.getByRole("cell", {name: "Aina Example", exact: true}).waitFor();
+  await page.getByRole("button", {name: "Clear file", exact: true}).click();
   await upload.setInputFiles(fixture);
   await page.getByRole("cell", { name: "Test Person", exact: true }).waitFor();
   const cachesText = await page.evaluate(async () => {
@@ -251,7 +294,7 @@ try {
   assert.ok(!cachesText.includes("Test Person"));
   assert.equal(errors.length, 0, errors.join("\n"));
   console.log(
-    "PASS: desktop/mobile layout, selection, actual age bands, comparison, export review gate, CSV, smart suggestions, confidence, coverage scores, manual-rule preservation, reset, hash history, restart, offline exercise, no browser errors.",
+    "PASS: desktop/mobile layout, selection, actual age bands, comparison, export review gate, CSV, fictional sample including offline loading, undo suggestions, smart suggestions, confidence, coverage scores, manual-rule preservation, reset, hash history, restart, offline exercise, no browser errors.",
   );
 } finally {
   await browser?.close();

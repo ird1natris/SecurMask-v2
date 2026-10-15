@@ -6,15 +6,19 @@ import {
   Trash2,
   FileSpreadsheet,
   ShieldCheck,
+  Undo2,
 } from "lucide-react";
 import { transformTable, exportCsv, MASK_RULES } from "./upload-data";
 import { detectSensitive, protectionSummary } from './sensitive-data';
 import SensitiveSuggestions, { ProtectionReport } from './SensitiveSuggestions';
+import { SAMPLE_CSV, SAMPLE_FILE_NAME } from './sample-data';
 export default function Files({ active }) {
   const [file, setFile] = useState(null),
     [sheets, setSheets] = useState([]),
     [sheetIndex, setSheetIndex] = useState(0),
     [rules, setRules] = useState({}),
+    [previousRules, setPreviousRules] = useState(null),
+    [isSample, setIsSample] = useState(false),
     [showSuggestions, setShowSuggestions] = useState(false),
     [onlySensitive, setOnlySensitive] = useState(false),
     [appliedMessage, setAppliedMessage] = useState(''),
@@ -39,10 +43,22 @@ export default function Files({ active }) {
     setAppliedMessage('');
   }
   function applySuggestions(next) {
+    setPreviousRules({ ...rules });
     setRules(current => ({ ...current, ...next }));
     resetReview();
     setShowSuggestions(false);
     setAppliedMessage(`${Object.keys(next).length} suggestions applied. Review your file to see the result and protection score.`);
+  }
+  function undoSuggestions() {
+    if (previousRules === null) return;
+    setRules(previousRules);
+    setPreviousRules(null);
+    setShowSuggestions(false);
+    resetReview();
+    setAppliedMessage('Suggestions undone. Your previous rules are restored. Review the file again before downloading.');
+  }
+  function trySample() {
+    load(new File([SAMPLE_CSV], SAMPLE_FILE_NAME, { type: 'text/csv' }), true);
   }
   useEffect(
     () => () => {
@@ -70,6 +86,8 @@ export default function Files({ active }) {
     setSheets([]);
     setSheetIndex(0);
     setRules({});
+    setPreviousRules(null);
+    setIsSample(false);
     setShowSuggestions(false);
     setOnlySensitive(false);
     setAppliedMessage('');
@@ -80,7 +98,7 @@ export default function Files({ active }) {
     setBusy(false);
     if (input.current) input.current.value = "";
   }
-  function load(next) {
+  function load(next, sample = false) {
     if (!next) return;
     clear();
     if (!/\.(csv|xlsx)$/i.test(next.name)) {
@@ -93,6 +111,7 @@ export default function Files({ active }) {
       setError("Choose a file smaller than 5 MB.");
       return;
     }
+    setIsSample(sample);
     setFile(next);
     setBusy(true);
     const task = new Worker(new URL("./upload.worker.js", import.meta.url), {
@@ -175,6 +194,7 @@ export default function Files({ active }) {
             onChange={(e) => load(e.target.files[0])}
           />
         </label>
+        {!file && <button className="secondary" onClick={trySample}>Try a sample</button>}
         <span>CSV or XLSX · Up to 5 MB · 10,000 rows</span>
         {file && (
           <button className="secondary" onClick={clear}>
@@ -182,6 +202,11 @@ export default function Files({ active }) {
           </button>
         )}
       </div>
+      {isSample && <div className="sample-notice" role="status">
+        <strong>Fictional workshop sample</strong>
+        <p>These people and contact details are made up. Try suggesting sensitive fields, then compare partial hiding with full removal.</p>
+        <p>Practice task: share session attendance counts. Which columns do you actually need?</p>
+      </div>}
       {busy && (
         <p className="upload-message" role="status">
           Reading your spreadsheet on this device…
@@ -218,6 +243,7 @@ export default function Files({ active }) {
                 onChange={(e) => {
                   setSheetIndex(Number(e.target.value));
                   setRules({});
+                  setPreviousRules(null);
                   setShowSuggestions(false);
                   setOnlySensitive(false);
                   resetReview();
@@ -334,6 +360,10 @@ export default function Files({ active }) {
                 </button>
                 {showSuggestions && <SensitiveSuggestions detections={detections} rules={rules} onApply={applySuggestions} />}
                 {appliedMessage && <p role="status" className="micro">{appliedMessage}</p>}
+                {previousRules !== null && <div className="undo-suggestions">
+                  <button className="secondary" onClick={undoSuggestions}><Undo2 size={16} aria-hidden="true" /> Undo applied suggestions</button>
+                  <p className="micro">Restores rules from before the latest application. Available until you manually change a rule.</p>
+                </div>}
                 <label className="ack"><input type="checkbox" checked={onlySensitive} onChange={e => setOnlySensitive(e.target.checked)} />Show likely sensitive columns only ({detections.length})</label>
                 <div className="upload-rules">
                   {data.headers.map((h, i) => (!onlySensitive || detections.some(d => d.column === i)) && (
@@ -345,6 +375,7 @@ export default function Files({ active }) {
                         value={rules[i] || "keep"}
                         onChange={(e) => {
                           setRules((r) => ({ ...r, [i]: e.target.value }));
+                          setPreviousRules(null);
                           resetReview();
                         }}
                       >

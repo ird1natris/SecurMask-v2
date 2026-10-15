@@ -46,13 +46,13 @@ const DecryptionKeyModal = ({ isOpen, onSubmit, onClose }) => {
                 <div className="flex justify-end space-x-2">
                     <button
                         onClick={onClose}
-                        className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+                        className="px-4 py-2 bg-gray-300 rounded-sm hover:bg-gray-400"
                     >
                         Cancel
                     </button>
                     <button
                         onClick={handleSubmit}
-                        className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600"
+                        className="px-4 py-2 bg-purple-500 text-white rounded-sm hover:bg-purple-600"
                     >
                         Submit
                     </button>

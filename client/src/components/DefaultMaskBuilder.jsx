@@ -189,7 +189,7 @@ const DefaultMaskBuilder = ({ isOpen, onClose, fileId, onMaskedUpdate, HandleMas
                             onClick={onClose}
                         />
                         <button
-                            className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 mb-2 mt-2 absolute bottom-4 right-8 cursor-pointer"
+                            className="px-4 py-2 bg-purple-500 text-white rounded-sm hover:bg-purple-600 mb-2 mt-2 absolute bottom-4 right-8 cursor-pointer"
                             onClick={() => setShowDecryptionModal(true)}
                         >
                             Run

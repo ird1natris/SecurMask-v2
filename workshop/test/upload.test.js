@@ -14,8 +14,8 @@ test("uploaded values remain unchanged unless explicitly selected", () => {
   const original = structuredClone(data);
   assert.deepEqual(transformTable(data, {}), data.rows);
   assert.deepEqual(transformTable(data, { 0: "id", 1: "age", 2: "remove" }), [
-    ["Row 0001", "30–39", ""],
-    ["Row 0002", "", ""],
+    ["Name 0001", "30–39", ""],
+    ["Name 0002", "", ""],
   ]);
   assert.deepEqual(data, original);
 });
@@ -37,4 +37,32 @@ test("headers, ragged rows, and formula export are handled explicitly", () => {
   assert.throws(() => normaliseTable([["A"], [1, 2]]), /more values/);
   assert.match(exportCsv(["=header"], [["  =1+1"]]), /"'=header"/);
   assert.match(exportCsv(["A"], [["  =1+1"]]), /"'  =1\+1"/);
+});
+
+test("IDs use each column heading and the source row number, preserving blanks", () => {
+  const data = normaliseTable([["Customer Name", "Account"], ["Alice", "001"], ["", "002"], ["Alice", "003"]]);
+  assert.deepEqual(transformTable(data, {0: "id", 1: "id"}), [
+    ["Customer Name 0001", "Account 0001"], ["", "Account 0002"], ["Customer Name 0003", "Account 0003"],
+  ]);
+});
+
+test("partial masks hide email, phone and text while retaining only intended details", () => {
+  const data = normaliseTable([
+    ["Email", "Phone", "Code", "Secret"],
+    ["alice@example.com", "+60 12-345 6789", "ABC1234567", "A😀 B"],
+    ["a@example.com", "1234", "1234", ""],
+    ["invalid email", "call me", "😀12", "  "],
+  ]);
+  const original = structuredClone(data);
+  const output = transformTable(data, {0: "email", 1: "phone", 2: "last4", 3: "redact"});
+  assert.deepEqual(output, [
+    ["aXXXX@example.com", "+XX XX-XXX 6789", "XXXXXX4567", "XXXX"],
+    ["X@example.com", "XXXX", "XXXX", ""],
+    ["XXXXXXXXXXXXX", "XXXX XX", "XXX", "  "],
+  ]);
+  assert.deepEqual(data, original);
+  const csv = exportCsv(data.headers, output);
+  assert.ok(csv.includes('aXXXX@example.com'));
+  assert.ok(!csv.includes('alice@'));
+  assert.ok(!csv.includes('345'));
 });

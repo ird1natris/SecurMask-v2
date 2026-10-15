@@ -9,7 +9,7 @@ const Detail = () => {
       </h2>
       <div className="flex flex-col gap-y-8 max-w-5xl mx-auto">
         {/* Data Masking */}
-        <div className="bg-gradient-to-r from-[#D795F2] to-[#F4DBE8] shadow-lg rounded-lg p-6 flex flex-col items-center text-center">
+        <div className="bg-linear-to-r from-[#D795F2] to-[#F4DBE8] shadow-lg rounded-lg p-6 flex flex-col items-center text-center">
           <FolderLock className="w-12 h-12 text-[#6C0595] mb-4" />
           <h3 className="text-3xl font-bold text-[#6C0595] mb-4">Data Masking</h3>
           <p className="text-black ">
@@ -19,7 +19,7 @@ const Detail = () => {
           </p>
         </div>
         {/* Data Unmasking */}
-        <div className="bg-gradient-to-r from-[#E892C0] to-[#F4DBE8] shadow-lg rounded-lg p-6 flex flex-col items-center text-center">
+        <div className="bg-linear-to-r from-[#E892C0] to-[#F4DBE8] shadow-lg rounded-lg p-6 flex flex-col items-center text-center">
           <FolderKey className="w-12 h-12 text-[#6C0595] mb-4" />
           <h3 className="text-3xl font-bold text-[#6C0595] mb-4">Data Unmasking</h3>
           <p className="text-black ">

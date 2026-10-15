@@ -24,7 +24,7 @@ const Sidebar = ({ onToggle, onLogout }) => {
     };
 
     return (
-        <nav className={`h-screen flex flex-col shadow-sm bg-side transition-all duration-300 ${expanded ? "w-64" : "w-20"} relative z-10`}>
+        <nav className={`h-screen flex flex-col shadow-xs bg-side transition-all duration-300 ${expanded ? "w-64" : "w-20"} relative z-10`}>
             {/* Menu Item */}
             <div onClick={handleToggle} className="flex items-center p-7 hover:bg-hover hover:rounded-lg relative group cursor-pointer">
                 <img src={menu} alt="Menu" className='w-[30px] h-[30px]' />
@@ -33,14 +33,14 @@ const Sidebar = ({ onToggle, onLogout }) => {
                 </span>
                 {/* Tooltip */}
                 {!expanded && (
-                    <div className="absolute left-full rounded-md px-2 py-1 ml-6 bg-gradient-to-r from-purple-500 to-purple-800 text-white text-sm opacity-0 -translate-x-3 invisible group-hover:visible group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
+                    <div className="absolute left-full rounded-md px-2 py-1 ml-6 bg-linear-to-r from-purple-500 to-purple-800 text-white text-sm opacity-0 -translate-x-3 invisible group-hover:visible group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
                         Menu
                     </div>
                 )}
             </div>
 
             {/* Sidebar Links */}
-            <div className='flex-grow'>
+            <div className='grow'>
                 <ul className='flex flex-col p-5 gap-6'>
                     {sideLinks.map((side) => (
                         <li key={side.id} className={`font-poppins font-normal cursor-pointer text-[16px] text-white mb-4 flex items-center hover:bg-hover hover:rounded-lg transition-all duration-300 ${expanded ? "w-full" : "w-16"} relative group`}>
@@ -52,7 +52,7 @@ const Sidebar = ({ onToggle, onLogout }) => {
                             </Link>
                             {/* Tooltip */}
                             {!expanded && (
-                                <div className="absolute left-full rounded-md px-2 py-1 ml-6 bg-gradient-to-r from-purple-500 to-purple-800 text-white text-sm opacity-0 -translate-x-3 invisible group-hover:visible group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
+                                <div className="absolute left-full rounded-md px-2 py-1 ml-6 bg-linear-to-r from-purple-500 to-purple-800 text-white text-sm opacity-0 -translate-x-3 invisible group-hover:visible group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
                                     {side.title}
                                 </div>
                             )}
@@ -69,7 +69,7 @@ const Sidebar = ({ onToggle, onLogout }) => {
                 </span>
                 {/* Tooltip */}
                 {!expanded && (
-                    <div className="absolute left-full rounded-md px-2 py-1 ml-6 bg-gradient-to-r from-purple-500 to-purple-800 text-white text-sm opacity-0 -translate-x-3 invisible group-hover:visible group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
+                    <div className="absolute left-full rounded-md px-2 py-1 ml-6 bg-linear-to-r from-purple-500 to-purple-800 text-white text-sm opacity-0 -translate-x-3 invisible group-hover:visible group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
                         Logout
                     </div>
                 )}

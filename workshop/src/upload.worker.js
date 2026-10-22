@@ -1,6 +1,6 @@
 import Papa from "papaparse";
 import ExcelJS from "exceljs";
-import { normaliseTable } from "./upload-data";
+import { normaliseTable, formulaResultText } from "./upload-data";
 self.onmessage = async ({ data: { file } }) => {
   try {
     let sheets;
@@ -25,6 +25,7 @@ self.onmessage = async ({ data: { file } }) => {
                 "Use at most 10,000 rows and 100 columns per sheet.",
               );
             const rows = [];
+            let formulas = 0;
             sheet.eachRow({ includeEmpty: true }, (row) => {
               const values = [];
               row.eachCell({ includeEmpty: true }, (cell, col) => {
@@ -33,16 +34,16 @@ self.onmessage = async ({ data: { file } }) => {
                   value &&
                   typeof value === "object" &&
                   ("formula" in value || "sharedFormula" in value)
-                )
-                  throw new Error(
-                    "This sheet contains formulas. Export it as values-only CSV first.",
-                  );
-                values[col - 1] =
-                  value instanceof Date ? value.toISOString() : cell.text;
+                ) {
+                  formulas++;
+                  values[col - 1] = formulaResultText(value, cell.address);
+                } else
+                  values[col - 1] =
+                    value instanceof Date ? value.toISOString() : cell.text;
               });
               rows.push(Array.from(values, (value) => value ?? ""));
             });
-            return { name: sheet.name, ...normaliseTable(rows) };
+            return { name: sheet.name, formulas, ...normaliseTable(rows) };
           } catch (error) {
             return { name: sheet.name, error: error.message };
           }

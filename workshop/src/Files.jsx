@@ -279,6 +279,15 @@ export default function Files({ active }) {
                   </div>
                   <span className="pill">Preview: first 20 rows</span>
                 </div>
+                {data.formulas > 0 && (
+                  <p className="micro">
+                    {data.formulas.toLocaleString()} formula{" "}
+                    {data.formulas === 1 ? "cell uses" : "cells use"} the value
+                    last saved in the file. If the file was saved without
+                    recalculating, these values may be out of date. Formulas
+                    are not included in the export.
+                  </p>
+                )}
                 {result && (
                   <div className="table-tabs">
                     {["masked", "original"].map((v) => (

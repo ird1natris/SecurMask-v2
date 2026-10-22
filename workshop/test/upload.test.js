@@ -4,6 +4,7 @@ import {
   normaliseTable,
   transformTable,
   exportCsv,
+  formulaResultText,
 } from "../src/upload-data.js";
 test("uploaded values remain unchanged unless explicitly selected", () => {
   const data = normaliseTable([
@@ -65,4 +66,15 @@ test("partial masks hide email, phone and text while retaining only intended det
   assert.ok(csv.includes('aXXXX@example.com'));
   assert.ok(!csv.includes('alice@'));
   assert.ok(!csv.includes('345'));
+});
+
+test("formula cells use the saved result and fail when it is missing or an error", () => {
+  assert.equal(formulaResultText({ formula: "A1&B1", result: "Alice Tan" }, "C2"), "Alice Tan");
+  assert.equal(formulaResultText({ sharedFormula: "C2", result: 42 }, "C3"), "42");
+  assert.equal(formulaResultText({ formula: "A1=\"\"", result: false }, "C4"), "false");
+  assert.equal(formulaResultText({ formula: "T(A1)", result: "" }, "C5"), "");
+  assert.equal(formulaResultText({ formula: "DATE(2026,1,2)", result: new Date("2026-01-02T00:00:00Z") }, "C6"), "2026-01-02T00:00:00.000Z");
+  assert.equal(formulaResultText({ formula: "A1", result: { richText: [{ text: "Al" }, { text: "ice" }] } }, "C7"), "Alice");
+  assert.throws(() => formulaResultText({ formula: "A1+1" }, "D2"), /D2 has a formula with no saved value/);
+  assert.throws(() => formulaResultText({ formula: "Z99/0", result: { error: "#REF!" } }, "D3"), /D3 shows #REF!/);
 });

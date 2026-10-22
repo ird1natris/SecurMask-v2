@@ -37,6 +37,21 @@ export function normaliseTable(matrix) {
       .map((row) => headers.map((_, i) => String(row[i] ?? ""))),
   };
 }
+// Use the value the spreadsheet app saved for a formula; formulas are never evaluated here.
+export function formulaResultText({ result }, address) {
+  if (result === undefined || result === null)
+    throw new Error(
+      `Cell ${address} has a formula with no saved value. Open the file in Excel or Google Sheets, let it recalculate, save it, and upload again.`,
+    );
+  if (typeof result === "object" && "error" in result)
+    throw new Error(
+      `Cell ${address} shows ${result.error}. Fix the formula error, or export the sheet as values-only CSV, and try again.`,
+    );
+  if (result instanceof Date) return result.toISOString();
+  if (typeof result === "object" && Array.isArray(result.richText))
+    return result.richText.map((part) => part.text).join("");
+  return String(result);
+}
 export function transformTable(data, rules) {
   return data.rows.map((row, index) =>
     row.map((value, col) => {

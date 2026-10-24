@@ -22,7 +22,15 @@ function columnLetter(index) {
   return letters;
 }
 export function normaliseTable(matrix) {
-  const rows = matrix.filter((row) => row.some((value) => !isBlank(value)));
+  const { headers, rows } = tableLayout(matrix);
+  return { headers, rows };
+}
+// Also reports which matrix rows and columns each table cell came from.
+export function tableLayout(matrix) {
+  const rowIndex = matrix
+    .map((_, i) => i)
+    .filter((i) => matrix[i].some((value) => !isBlank(value)));
+  const rows = rowIndex.map((i) => matrix[i]);
   if (rows.length < 2)
     throw new Error("Include a header row and at least one data row.");
   if (rows.length - 1 > MAX_ROWS)
@@ -49,6 +57,8 @@ export function normaliseTable(matrix) {
   return {
     headers,
     rows: rows.slice(1).map((row) => columns.map((i) => String(row[i] ?? ""))),
+    rowIndex,
+    columns,
   };
 }
 // Use the value the spreadsheet app saved for a formula; formulas are never evaluated here.
@@ -72,7 +82,9 @@ export function cellValueText(value) {
 export function worksheetRows(sheet) {
   const rows = [];
   let formulas = 0, blankFormulas = 0;
-  sheet.eachRow((row) => {
+  const rowNumbers = [];
+  sheet.eachRow((row, number) => {
+    rowNumbers.push(number);
     const values = [];
     row.eachCell((cell, col) => {
       // Cells covered by a merge stay blank; the value lives in the top-left cell.
@@ -90,6 +102,7 @@ export function worksheetRows(sheet) {
   const width = rows.reduce((max, row) => Math.max(max, row.length), 0);
   return {
     rows: rows.map((row) => Array.from({ length: width }, (_, i) => row[i] ?? "")),
+    rowNumbers,
     formulas,
     blankFormulas,
   };

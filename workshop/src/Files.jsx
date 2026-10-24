@@ -27,7 +27,8 @@ export default function Files({ active }) {
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [ack, setAck] = useState(false),
-    [done, setDone] = useState(false);
+    [done, setDone] = useState(""),
+    [exporting, setExporting] = useState(false);
   const worker = useRef(null),
     timer = useRef(null),
     input = useRef(null),
@@ -38,7 +39,7 @@ export default function Files({ active }) {
   function resetReview() {
     setResult(null);
     setAck(false);
-    setDone(false);
+    setDone("");
     setError('');
     setAppliedMessage('');
   }
@@ -94,8 +95,9 @@ export default function Files({ active }) {
     setResult(null);
     setError("");
     setAck(false);
-    setDone(false);
+    setDone("");
     setBusy(false);
+    setExporting(false);
     if (input.current) input.current.value = "";
   }
   function load(next, sample = false) {
@@ -147,24 +149,61 @@ export default function Files({ active }) {
       setResult(transformTable(data, rules));
       setView("masked");
       setAck(false);
-      setDone(false);
+      setDone("");
       setError("");
     } catch (e) {
       setError(e.message);
     }
   }
+  function save(blob, name) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
   function download() {
-    const url = URL.createObjectURL(
+    save(
       new Blob([exportCsv(data.headers, result)], {
         type: "text/csv;charset=utf-8",
       }),
+      "securmask-masked.csv",
     );
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "securmask-masked.csv";
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    setDone(true);
+    setDone("Masked CSV downloaded.");
+  }
+  // The XLSX is rebuilt from the original file so formatting and safe formulas survive.
+  function downloadXlsx() {
+    setExporting(true);
+    setDone("");
+    const task = new Worker(new URL("./export.worker.js", import.meta.url), {
+      type: "module",
+    });
+    worker.current = task;
+    const finish = () => {
+      task.terminate();
+      setExporting(false);
+    };
+    task.onmessage = ({ data: message }) => {
+      finish();
+      if (message.error) return setError(message.error);
+      save(
+        new Blob([message.buffer], {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        }),
+        "securmask-masked.xlsx",
+      );
+      const { kept, values } = message.counts;
+      setDone(
+        `Masked XLSX downloaded. ${kept.toLocaleString()} formula${kept === 1 ? "" : "s"} kept` +
+          (values ? `, ${values.toLocaleString()} replaced with ${values === 1 ? "its value" : "their values"}.` : "."),
+      );
+    };
+    task.onerror = () => {
+      finish();
+      setError("The masked XLSX could not be created. Download the masked CSV instead.");
+    };
+    task.postMessage({ file, sheetName: data.name, rules });
   }
   return (
     <section hidden={!active} aria-label="Your files">
@@ -284,8 +323,8 @@ export default function Files({ active }) {
                     {(data.formulas - data.blankFormulas).toLocaleString()} formula{" "}
                     {data.formulas - data.blankFormulas === 1 ? "cell uses" : "cells use"} the value
                     last saved in the file. If the file was saved without
-                    recalculating, these values may be out of date. Formulas
-                    are not included in the export.
+                    recalculating, these values may be out of date. The CSV
+                    export contains values only.
                   </p>
                 )}
                 {data.blankFormulas > 0 && (
@@ -436,13 +475,24 @@ export default function Files({ active }) {
                       <Download size={17} aria-hidden="true" />
                       Download masked CSV
                     </button>
+                    {/\.xlsx$/i.test(file.name) && (
+                      <button
+                        className="secondary"
+                        disabled={!ack || exporting}
+                        onClick={downloadXlsx}
+                      >
+                        <Download size={17} aria-hidden="true" />
+                        {exporting ? "Preparing XLSX…" : "Download masked XLSX"}
+                      </button>
+                    )}
                     <p className="micro">
-                      Spreadsheet formula-like text is escaped in the export.
-                      Formatting and other worksheets are not included.
+                      CSV: values only; formula-like text is escaped.
+                      {/\.xlsx$/i.test(file.name) &&
+                        " XLSX: keeps formatting and formulas that only use this sheet. Formulas in masked columns, or that use other sheets or contain masked text, are replaced with their values. Other worksheets, charts and pivot tables are not included."}
                     </p>
                     {done && (
                       <p role="status" className="micro">
-                        Masked CSV downloaded.
+                        {done}
                       </p>
                     )}
                   </>

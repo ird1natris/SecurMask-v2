@@ -279,13 +279,23 @@ export default function Files({ active }) {
                   </div>
                   <span className="pill">Preview: first 20 rows</span>
                 </div>
-                {data.formulas > 0 && (
+                {data.formulas > data.blankFormulas && (
                   <p className="micro">
-                    {data.formulas.toLocaleString()} formula{" "}
-                    {data.formulas === 1 ? "cell uses" : "cells use"} the value
+                    {(data.formulas - data.blankFormulas).toLocaleString()} formula{" "}
+                    {data.formulas - data.blankFormulas === 1 ? "cell uses" : "cells use"} the value
                     last saved in the file. If the file was saved without
                     recalculating, these values may be out of date. Formulas
                     are not included in the export.
+                  </p>
+                )}
+                {data.blankFormulas > 0 && (
+                  <p className="micro">
+                    {data.blankFormulas.toLocaleString()} formula{" "}
+                    {data.blankFormulas === 1 ? "cell has" : "cells have"} no
+                    saved value and {data.blankFormulas === 1 ? "is" : "are"}{" "}
+                    shown blank. This is normal for formulas that return an
+                    empty value. If they should show a result, open the file in
+                    Excel or Google Sheets, save it, and upload again.
                   </p>
                 )}
                 {result && (

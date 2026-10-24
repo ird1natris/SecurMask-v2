@@ -5,6 +5,7 @@ import {
   transformTable,
   exportCsv,
   formulaResultText,
+  worksheetRows,
 } from "../src/upload-data.js";
 test("uploaded values remain unchanged unless explicitly selected", () => {
   const data = normaliseTable([
@@ -27,13 +28,12 @@ test("invalid ages fail instead of silently retaining or inventing values", () =
   );
 });
 test("headers, ragged rows, and formula export are handled explicitly", () => {
-  assert.throws(
-    () =>
-      normaliseTable([
-        ["A", "A"],
-        [1, 2],
-      ]),
-    /unique/,
+  assert.deepEqual(
+    normaliseTable([
+      ["A", "A", "", "", ""],
+      [1, 2, "", "x", ""],
+    ]),
+    { headers: ["A", "A (2)", "Column D"], rows: [["1", "2", "x"]] },
   );
   assert.throws(() => normaliseTable([["A"], [1, 2]]), /more values/);
   assert.match(exportCsv(["=header"], [["  =1+1"]]), /"'=header"/);
@@ -68,13 +68,43 @@ test("partial masks hide email, phone and text while retaining only intended det
   assert.ok(!csv.includes('345'));
 });
 
-test("formula cells use the saved result and fail when it is missing or an error", () => {
+test("formula cells use the saved result, showing blanks and errors as saved", () => {
   assert.equal(formulaResultText({ formula: "A1&B1", result: "Alice Tan" }, "C2"), "Alice Tan");
   assert.equal(formulaResultText({ sharedFormula: "C2", result: 42 }, "C3"), "42");
   assert.equal(formulaResultText({ formula: "A1=\"\"", result: false }, "C4"), "false");
   assert.equal(formulaResultText({ formula: "T(A1)", result: "" }, "C5"), "");
   assert.equal(formulaResultText({ formula: "DATE(2026,1,2)", result: new Date("2026-01-02T00:00:00Z") }, "C6"), "2026-01-02T00:00:00.000Z");
   assert.equal(formulaResultText({ formula: "A1", result: { richText: [{ text: "Al" }, { text: "ice" }] } }, "C7"), "Alice");
-  assert.throws(() => formulaResultText({ formula: "A1+1" }, "D2"), /D2 has a formula with no saved value/);
-  assert.throws(() => formulaResultText({ formula: "Z99/0", result: { error: "#REF!" } }, "D3"), /D3 shows #REF!/);
+  assert.equal(formulaResultText({ formula: "IF(A1=\"\",\"\",A1)" }, "D2"), "");
+  assert.equal(formulaResultText({ formula: "Z99/0", result: { error: "#REF!" } }, "D3"), "#REF!");
+});
+
+test("multi-sheet workbooks with merged cells, spacer columns and uncached formulas load", async () => {
+  const ExcelJS = (await import("exceljs")).default;
+  const book = new ExcelJS.Workbook();
+  const dashboard = book.addWorksheet("Dashboard");
+  dashboard.getCell("A1").value = "Case dashboard";
+  dashboard.mergeCells("A1:D1");
+  dashboard.mergeCells("A3:B3");
+  dashboard.getCell("C3").value = { formula: "COUNTA(Master!A:A)" };
+  dashboard.getCell("A4").value = "Open";
+  dashboard.getCell("C4").value = { formula: "1+1", result: 2 };
+  dashboard.getCell("D4").value = { text: "Link", hyperlink: "https://example.com" };
+  const lists = book.addWorksheet("Lists");
+  lists.addRows([["Status", "", "Priority"], ["Open", "", "High"], ["Closed", "", "Low"]]);
+  lists.getCell("F1").style = { font: { bold: true } };
+  const loaded = new ExcelJS.Workbook();
+  await loaded.xlsx.load(await book.xlsx.writeBuffer());
+
+  const dash = worksheetRows(loaded.getWorksheet("Dashboard"));
+  assert.equal(dash.formulas, 2);
+  assert.equal(dash.blankFormulas, 1);
+  assert.deepEqual(normaliseTable(dash.rows), {
+    headers: ["Case dashboard", "Column C", "Column D"],
+    rows: [["Open", "2", "Link"]],
+  });
+  assert.deepEqual(normaliseTable(worksheetRows(loaded.getWorksheet("Lists")).rows), {
+    headers: ["Status", "Priority"],
+    rows: [["Open", "High"], ["Closed", "Low"]],
+  });
 });

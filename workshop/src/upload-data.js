@@ -11,46 +11,88 @@ export const MASK_RULES = [
 
 export const MAX_ROWS = 10000;
 export const MAX_COLUMNS = 100;
+const isBlank = (value) => String(value ?? "").trim() === "";
+function columnLetter(index) {
+  let n = index + 1, letters = "";
+  while (n) {
+    n--;
+    letters = String.fromCharCode(65 + (n % 26)) + letters;
+    n = Math.floor(n / 26);
+  }
+  return letters;
+}
 export function normaliseTable(matrix) {
-  const rows = matrix.filter((row) =>
-    row.some((value) => String(value ?? "").trim() !== ""),
-  );
+  const rows = matrix.filter((row) => row.some((value) => !isBlank(value)));
   if (rows.length < 2)
     throw new Error("Include a header row and at least one data row.");
   if (rows.length - 1 > MAX_ROWS)
     throw new Error("Use a file with at most 10,000 data rows.");
-  const headers = rows[0].map((value) => String(value ?? "").trim());
-  if (headers.length > MAX_COLUMNS) throw new Error("Use at most 100 columns.");
-  if (
-    headers.some((value) => !value) ||
-    new Set(headers).size !== headers.length
-  )
-    throw new Error("Every column needs a unique, non-empty header.");
-  if (rows.slice(1).some((row) => row.length > headers.length))
+  // A CSV row longer than its header usually means an unquoted comma shifted values.
+  if (rows.slice(1).some((row) => row.length > rows[0].length))
     throw new Error(
       "Some rows have more values than the header. Check the file layout.",
     );
+  // Spacer and trailing columns that are empty in every row are dropped.
+  const columns = rows[0]
+    .map((_, i) => i)
+    .filter((i) => rows.some((row) => !isBlank(row[i])));
+  if (columns.length > MAX_COLUMNS) throw new Error("Use at most 100 columns.");
+  // Blank headings take the column letter; repeated headings get a number.
+  const used = new Set();
+  const headers = columns.map((i) => {
+    const base = String(rows[0][i] ?? "").trim() || `Column ${columnLetter(i)}`;
+    let header = base;
+    for (let n = 2; used.has(header); n++) header = `${base} (${n})`;
+    used.add(header);
+    return header;
+  });
   return {
     headers,
-    rows: rows
-      .slice(1)
-      .map((row) => headers.map((_, i) => String(row[i] ?? ""))),
+    rows: rows.slice(1).map((row) => columns.map((i) => String(row[i] ?? ""))),
   };
 }
 // Use the value the spreadsheet app saved for a formula; formulas are never evaluated here.
-export function formulaResultText({ result }, address) {
-  if (result === undefined || result === null)
-    throw new Error(
-      `Cell ${address} has a formula with no saved value. Open the file in Excel or Google Sheets, let it recalculate, save it, and upload again.`,
-    );
-  if (typeof result === "object" && "error" in result)
-    throw new Error(
-      `Cell ${address} shows ${result.error}. Fix the formula error, or export the sheet as values-only CSV, and try again.`,
-    );
-  if (result instanceof Date) return result.toISOString();
-  if (typeof result === "object" && Array.isArray(result.richText))
-    return result.richText.map((part) => part.text).join("");
-  return String(result);
+// A missing result is shown blank: Excel saves formulas that return "" without a value.
+export function formulaResultText({ result }) {
+  return result === undefined || result === null ? "" : cellValueText(result);
+}
+export function cellValueText(value) {
+  if (value === undefined || value === null) return "";
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value !== "object") return String(value);
+  if (Array.isArray(value.richText))
+    return value.richText.map((part) => part.text).join("");
+  if ("formula" in value || "sharedFormula" in value)
+    return formulaResultText(value);
+  if ("hyperlink" in value) return cellValueText(value.text);
+  if ("error" in value) return String(value.error);
+  return "";
+}
+// Read an ExcelJS worksheet without cell.text, which throws on merged empty cells.
+export function worksheetRows(sheet) {
+  const rows = [];
+  let formulas = 0, blankFormulas = 0;
+  sheet.eachRow((row) => {
+    const values = [];
+    row.eachCell((cell, col) => {
+      // Cells covered by a merge stay blank; the value lives in the top-left cell.
+      if (cell.master !== cell) return;
+      const value = cell.value;
+      if (value && typeof value === "object" && ("formula" in value || "sharedFormula" in value)) {
+        formulas++;
+        if (value.result === undefined || value.result === null) blankFormulas++;
+      }
+      values[col - 1] = cellValueText(value);
+    });
+    rows.push(values);
+  });
+  // Pad to the widest row so cells beyond the header row are kept, not rejected.
+  const width = rows.reduce((max, row) => Math.max(max, row.length), 0);
+  return {
+    rows: rows.map((row) => Array.from({ length: width }, (_, i) => row[i] ?? "")),
+    formulas,
+    blankFormulas,
+  };
 }
 export function transformTable(data, rules) {
   return data.rows.map((row, index) =>
